@@ -18,6 +18,7 @@ const getURLs = (startingDateStr, endingDateStr) => {
             urls.push({
                 url,
                 fileName: `${date}${month}${year}.zip`,
+                csvFileName: `cm${date}${month}${year}bhav.csv`,
                 filePath: `files/${year}/${month}/`,
                 fileDate: currentDate.format('DD/MM/YYYY')
             })
