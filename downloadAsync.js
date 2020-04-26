@@ -4,10 +4,15 @@ import { downloadUrl } from './downloadUrl'
 
 const downloadAsync = (urls) => {
     async.eachLimit(urls, 1, function ({ url, fileName, filePath }, cb = () => { }) {
-        downloadUrl(url, fileName, filePath)
-        setTimeout(() => {
+        const result = downloadUrl(url, fileName, filePath)
+        if (result) {
             cb()
-        }, 500)
+        }
+        else {
+            setTimeout(() => {
+                cb()
+            }, 500)
+        }
     }, (err, results) => {
         if (err) {
             console.log(err)

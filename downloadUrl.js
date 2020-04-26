@@ -4,7 +4,7 @@ import https from 'https'
 const downloadUrl = (fileUrl, fileName, filePath) => {
     const fileWithPath = `./${filePath}/zips/${fileName}`
     if (fs.existsSync(fileWithPath)) {
-        return
+        return true
     }
     else {
         fs.mkdirSync(`./${filePath}/zips`, { recursive: true })
