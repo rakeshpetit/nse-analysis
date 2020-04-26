@@ -2,18 +2,17 @@ import fs from 'fs'
 import https from 'https'
 
 const downloadUrl = (fileUrl, fileName, filePath) => {
-    const fileWithPath = `./${filePath}${fileName}`
-    // const fileWithPath = `${fileName}`
-    console.log(fileWithPath)
-    const file = fs.createWriteStream(fileWithPath);
-    const request = https.get(fileUrl, function (response) {
+    console.log(fileName)
+    const file = fs.createWriteStream(fileName);
+    https.get(fileUrl, function (response) {
         response.pipe(file);
         file.on('finish', function () {
-            file.close(cb);  // close() is async, call cb after close completes.
+            file.close();
         });
-    }).on('error', function (err) { // Handle errors
-        fs.unlink(dest); // Delete the file async. (But we don't check the result)
-        if (cb) cb(err.message);
+    }).on('error', function (err) { 
+        // Handle errors
+        console.log(err)
+        fs.unlink(dest);
     });
 }
 
