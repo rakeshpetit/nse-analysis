@@ -18,7 +18,8 @@ const getURLs = (startingDateStr, endingDateStr) => {
             urls.push({
                 url,
                 fileName: `${date}${month}${year}.zip`,
-                filePath: `files/${year}/${month}/`
+                filePath: `files/${year}/${month}/`,
+                fileDate: currentDate.format('DD/MM/YYYY')
             })
         }
         currentDate.add(1, "days")
