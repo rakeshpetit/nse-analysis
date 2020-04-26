@@ -2,11 +2,14 @@ import fs from 'fs'
 import https from 'https'
 
 const downloadUrl = (fileUrl, fileName, filePath) => {
-    if (fs.existsSync(fileName)) {
+    const fileWithPath = `./${filePath}/zips/${fileName}`
+    if (fs.existsSync(fileWithPath)) {
         return
     }
-    console.log(fileName)
-    const file = fs.createWriteStream(fileName);
+    else {
+        fs.mkdirSync(`./${filePath}/zips`, { recursive: true })
+    }
+    const file = fs.createWriteStream(fileWithPath);
     https.get(fileUrl, function (response) {
         response.pipe(file);
         file.on('finish', function () {
