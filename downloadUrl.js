@@ -1,17 +1,18 @@
 import fs from 'fs'
 import https from 'https'
 
-const getFileWithPath = (fileName, filePath) => `${getFilePath(filePath, 'zips')}${fileName}`
+const getFileWithPath = (fileName, filePath, appendStr) => `${getFilePath(filePath, appendStr)}${fileName}`
 
 const getFilePath = (filePath, appendStr) => `./${filePath}${appendStr}/`
 
 const downloadUrl = (fileUrl, fileName, filePath) => {
-    const fileWithPath = getFileWithPath(fileName, filePath)
+    const appendStr = 'zips'
+    const fileWithPath = getFileWithPath(fileName, filePath, appendStr)
     if (fs.existsSync(fileWithPath)) {
         return true
     }
     else {
-        fs.mkdirSync(getFilePath(filePath, 'zips'), { recursive: true })
+        fs.mkdirSync(getFilePath(filePath, appendStr), { recursive: true })
     }
     const file = fs.createWriteStream(fileWithPath);
     https.get(fileUrl, function (response) {
@@ -27,4 +28,4 @@ const downloadUrl = (fileUrl, fileName, filePath) => {
     });
 }
 
-export { downloadUrl }
+export { downloadUrl, getFilePath, getFileWithPath }
