@@ -10,7 +10,7 @@ const collateData = (urls) => {
         if (!fs.existsSync(fileName)) {
             return
         }
-        try{
+        try {
             const headers = [
                 'SYMBOL', undefined, undefined,
                 undefined, undefined, 'CLOSE',
@@ -21,21 +21,20 @@ const collateData = (urls) => {
             fs.createReadStream(fileName)
                 .pipe(csv.parse({ headers }))
                 .on('error', error => console.error(error))
-                .on('data', (row) => { 
+                .on('data', (row) => {
                     const symbol = row['SYMBOL']
-                    if (!currentData[symbol]){
+                    if (!currentData[symbol]) {
                         currentData[symbol] = {}
                     }
                     const currentSymbol = currentData[symbol]
-                    const data = { close: row['CLOSE']}
+                    const data = { close: row['CLOSE'] }
                     currentSymbol[fileDate] = data
                 })
                 .on('end', (rowCount) => {
-                    fs.writeFile('data.json', JSON.stringify(currentData), 'utf8', () => {});
+                    fs.writeFile('data.json', JSON.stringify(currentData), 'utf8', () => { });
                 });
-
-            }
-        catch(e){
+        }
+        catch (e) {
             console.log('e', e)
         }
     })
