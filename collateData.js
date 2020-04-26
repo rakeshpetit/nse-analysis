@@ -5,14 +5,20 @@ import { getFileWithPath, getFilePath } from './downloadUrl'
 
 const collateData = (urls) => {
     urls.map(({ url, csvFileName, filePath }) => {
-        // const csvFilePath = getFilePath(filePath, 'csvs')
         const fileName = getFileWithPath(csvFileName, filePath, 'csvs')
-        console.log('fileName', fileName)
-        fs.createReadStream(fileName)
-            .pipe(csv.parse({ headers: true }))
-            .on('error', error => console.error(error))
-            .on('data', row => console.log(row))
-            .on('end', (rowCount) => console.log(`Parsed ${rowCount} rows`));
+        if (!fs.existsSync(fileName)) {
+            return
+        }
+        try{
+            fs.createReadStream(fileName)
+                .pipe(csv.parse({ headers: true }))
+                .on('error', error => console.error(error))
+                .on('data', row => { })
+                .on('end', (rowCount) => console.log(`Parsed ${fileName} with ${rowCount} rows`));
+        }
+        catch(e){
+
+        }
     })
 }
 
