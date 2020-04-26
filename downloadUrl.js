@@ -1,8 +1,11 @@
 import fs from 'fs'
 import https from 'https'
 
-const downloadUrl = (fileUrl) => {
-    const file = fs.createWriteStream('./files');
+const downloadUrl = (fileUrl, fileName, filePath) => {
+    const fileWithPath = `./${filePath}${fileName}`
+    // const fileWithPath = `${fileName}`
+    console.log(fileWithPath)
+    const file = fs.createWriteStream(fileWithPath);
     const request = https.get(fileUrl, function (response) {
         response.pipe(file);
         file.on('finish', function () {

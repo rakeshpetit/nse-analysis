@@ -15,7 +15,11 @@ const getURLs = (startingDateStr, endingDateStr) => {
             const month = currentDate.format('MMM').toUpperCase()
             const fileName = `cm${date}${month}${year}bhav.csv.zip`
             const url = `https://www1.nseindia.com/content/historical/EQUITIES/${year}/${month}/${fileName}`
-            urls.push(url)
+            urls.push({
+                url,
+                fileName: `${date}${month}${year}.zip`,
+                filePath: `files/${year}/${month}/`
+            })
         }
         currentDate.add(1, "days")
     }

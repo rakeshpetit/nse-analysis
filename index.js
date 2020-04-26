@@ -6,7 +6,7 @@ const endingDateStr = '01/01/2020'
 
 const urls = getURLs(startingDateStr, endingDateStr)
 
-urls.map(url => {
+urls.map(({url, fileName, filePath}) => {
     console.log(url)
-    // downloadUrl(url)
+    downloadUrl(url, fileName, filePath)
 })
