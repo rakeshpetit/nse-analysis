@@ -14,6 +14,7 @@ const downloadUrl = (fileUrl, fileName, filePath) => {
         response.pipe(file);
         file.on('finish', function () {
             file.close();
+            console.log('Done with:', fileName)
         });
     }).on('error', function (err) { 
         // Handle errors
