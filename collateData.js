@@ -12,10 +12,10 @@ const collateData = (urls) => {
         }
         try {
             const headers = [
-                'SYMBOL', undefined, undefined,
+                'SYMBOL', 'SERIES', undefined,
                 undefined, undefined, 'CLOSE',
                 undefined, undefined, undefined,
-                undefined, undefined, undefined,
+                'TOTTRDVAL', undefined, undefined,
                 undefined, undefined, undefined,
             ]
             fs.createReadStream(fileName)
@@ -27,10 +27,20 @@ const collateData = (urls) => {
                         currentData[symbol] = {}
                     }
                     const currentSymbol = currentData[symbol]
-                    const data = { close: row['CLOSE'] }
-                    currentSymbol[fileDate] = data
+                    if (row['SERIES'] === 'EQ' && row['TOTTRDVAL'] > 10000000) {
+                        const data = {
+                            close: row['CLOSE'], 
+                            //  value: row['TOTTRDVAL']
+                        }
+                        currentSymbol[fileDate] = data
+                    }                    
                 })
                 .on('end', (rowCount) => {
+                    Object.keys(currentData).map(ticker => {
+                        if (Object.keys(ticker).length < 10){
+                            delete currentData[ticker]
+                        }
+                    })
                     fs.writeFile('data.json', JSON.stringify(currentData), 'utf8', () => { });
                 });
         }
