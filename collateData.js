@@ -27,20 +27,17 @@ const collateData = (urls) => {
                         currentData[symbol] = {}
                     }
                     const currentSymbol = currentData[symbol]
-                    if (row['SERIES'] === 'EQ' && row['TOTTRDVAL'] > 10000000) {
+                    if (row['SERIES'] === 'EQ'
+                        && +row['CLOSE'] > 100
+                        && +row['TOTTRDVAL'] > 1000000) {
                         const data = {
-                            close: row['CLOSE'], 
+                            close: row['CLOSE'],
                             //  value: row['TOTTRDVAL']
                         }
                         currentSymbol[fileDate] = data
-                    }                    
+                    }
                 })
                 .on('end', (rowCount) => {
-                    Object.keys(currentData).map(ticker => {
-                        if (Object.keys(ticker).length < 10){
-                            delete currentData[ticker]
-                        }
-                    })
                     fs.writeFile('data.json', JSON.stringify(currentData), 'utf8', () => { });
                 });
         }

@@ -1,11 +1,8 @@
 import fs from 'fs'
 import moment from 'moment'
 
-const generateRowData = (tickerData, ticker, startingDateStr, endingDateStr) => {
-    const startingDate = moment(startingDateStr, 'DD/MM/YYYY HH:mm')
-    const endingDate = moment(endingDateStr, 'DD/MM/YYYY HH:mm')
+const generateRowData = (tickerData, ticker, startingDate, numOfDays) => {
     const currentDate = startingDate.clone()
-    const numOfDays = endingDate.diff(startingDate, "days")
     let data = []
     data.push(ticker)
     for (let i = 0; i <= numOfDays; i++) {
@@ -20,12 +17,12 @@ const generateRowData = (tickerData, ticker, startingDateStr, endingDateStr) => 
                 if (cellData.close === 'CLOSE') {
                     data.push(dateKey)
                 }
-                else {
+                else if(cellData.close > 0) {
                     data.push(cellData.close)
                 }
             }
             else {
-                data.push(cellData)
+                // data.push(cellData)
             }
         }
         currentDate.add(1, "days")
@@ -33,19 +30,24 @@ const generateRowData = (tickerData, ticker, startingDateStr, endingDateStr) => 
     return data
 }
 const analyseData = (startingDateStr, endingDateStr) => {
-    fs.readFile('data1.json', 'utf8', function readFileCallback(err, data) {
+    fs.readFile('data.json', 'utf8', function readFileCallback(err, data) {
         if (err) {
             console.log(err);
         } else {
+            const startingDate = moment(startingDateStr, 'DD/MM/YYYY HH:mm')
+            const endingDate = moment(endingDateStr, 'DD/MM/YYYY HH:mm')            
+            const numOfDays = endingDate.diff(startingDate, "days")
             const obj = JSON.parse(data); //now it an object
-            let writeStream = fs.createWriteStream('./data1.csv')
+            let writeStream = fs.createWriteStream('./data.csv')
             Object.keys(obj).map(ticker => {
                 const rowData = generateRowData(
                     obj[ticker],
                     ticker,
-                    startingDateStr,
-                    endingDateStr)
-                writeStream.write(rowData.join(',') + '\n', () => { })
+                    startingDate,
+                    numOfDays)
+                if (rowData.length > numOfDays * 0.5){
+                    writeStream.write(rowData.join(',') + '\n', () => { })
+                }
             })
         }
     });
