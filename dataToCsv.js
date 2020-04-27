@@ -29,7 +29,7 @@ const generateRowData = (tickerData, ticker, startingDate, numOfDays) => {
     }
     return data
 }
-const analyseData = (startingDateStr, endingDateStr) => {
+const writeToCsv = (startingDateStr, endingDateStr) => {
     fs.readFile('data.json', 'utf8', function readFileCallback(err, data) {
         if (err) {
             console.log(err);
@@ -54,4 +54,4 @@ const analyseData = (startingDateStr, endingDateStr) => {
 }
 
 
-export { analyseData }
+export { writeToCsv }
