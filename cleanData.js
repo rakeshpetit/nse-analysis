@@ -1,15 +1,14 @@
 import fs from 'fs'
 import moment from 'moment'
 
-const cleanData = (startingDateStr, endingDateStr) => {
+const fetchJSONdata = (startingDate, endingDate, year) => {
+    
     return new Promise((resolve, reject) => {
-        fs.readFile('data.json', 'utf8', function readFileCallback(err, data) {
+        fs.readFile(`data${year}.json`, 'utf8', function readFileCallback(err, data) {
             if (err) {
                 console.log(err);
                 reject(err)
             } else {
-                const startingDate = moment(startingDateStr, 'DD/MM/YYYY HH:mm')
-                const endingDate = moment(endingDateStr, 'DD/MM/YYYY HH:mm')
                 const numOfDays = endingDate.diff(startingDate, "days")
                 const obj = JSON.parse(data); //now it an object
                 let cleanedData = {}
@@ -22,6 +21,43 @@ const cleanData = (startingDateStr, endingDateStr) => {
                 resolve(cleanedData)
             }
         });
+    })
+}
+const cleanData = (startingDateStr, endingDateStr) => {
+    const startingDate = moment(startingDateStr, 'DD/MM/YYYY HH:mm')
+    const endingDate = moment(endingDateStr, 'DD/MM/YYYY HH:mm')
+    const startYear = startingDate.format('YYYY')
+    const endYear = endingDate.format('YYYY')
+    console.log('starting', startYear)
+    console.log('end', endYear)
+    // return fetchJSONdata(startingDate, endingDate, endYear)
+    const allData = {}
+    let allDataPromise = []
+    for (let year = startYear; year <= endYear; year++){
+        allDataPromise.push(fetchJSONdata(startingDate, endingDate, year ))
+    }
+    return Promise.all(allDataPromise).then((data) => {
+         data.map(yearly => {
+            Object.keys(yearly).map(ticker => {
+                const currentTickerData = yearly[ticker]
+                const filteredTickData = Object.keys(currentTickerData)
+                    .filter(key => {
+                        // console.log(key)
+                        const keyDate = moment(key, 'DD/MM/YYYY')
+                        return keyDate.isBetween(startingDate,endingDate)
+                    })
+                    .reduce((obj, key) => {
+                        obj[key] = currentTickerData[key];
+                        return obj;
+                    }, {});
+                allData[ticker] = { ...allData[ticker], ...filteredTickData}
+            })
+            // console.log('tegw',Object.keys(yearly['3MINDIA']))
+            //  allData
+
+         })
+         return allData
+        // return data[1]
     })
 }
 

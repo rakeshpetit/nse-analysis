@@ -5,7 +5,7 @@ import { getFileWithPath, getFilePath } from './downloadUrl'
 
 const collateData = (urls) => {
     let currentData = {}
-    urls.map(({ fileDate, csvFileName, filePath }) => {
+    urls.map(({ fileDate, csvFileName, filePath, year }) => {
         const fileName = getFileWithPath(csvFileName, filePath, 'csvs')
         if (!fs.existsSync(fileName)) {
             return
@@ -38,7 +38,7 @@ const collateData = (urls) => {
                     }
                 })
                 .on('end', (rowCount) => {
-                    fs.writeFile('data.json', JSON.stringify(currentData), 'utf8', () => { });
+                    fs.writeFile(`data${year}.json`, JSON.stringify(currentData), 'utf8', () => { });
                 });
         }
         catch (e) {

@@ -20,7 +20,8 @@ const getURLs = (startingDateStr, endingDateStr) => {
                 fileName: `${date}${month}${year}.zip`,
                 csvFileName: `cm${date}${month}${year}bhav.csv`,
                 filePath: `files/${year}/${month}/`,
-                fileDate: currentDate.format('DD/MM/YYYY')
+                fileDate: currentDate.format('DD/MM/YYYY'),
+                year: currentDate.format('YYYY')
             })
         }
         currentDate.add(1, "days")
