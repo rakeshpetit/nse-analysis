@@ -1,11 +1,21 @@
 import moment from 'moment'
 import { cleanData } from './cleanData'
 
-const findSharpe = (percentData, dataSize) => {
-    const average = percentData.reduce((sum, dailyPercent) => {
+const findSharpe = (percentData, sharpeSqrt) => {
+    let average = percentData.reduce((sum, dailyPercent) => {
         return sum + dailyPercent.percentDiff
     }, 0)
-    return dataSize * average / percentData.length
+    const dataLength = percentData.length
+    average = average / dataLength
+    let variance = percentData.reduce((sum, dailyPercent) => {
+        const sigma = dailyPercent.percentDiff - average
+        const sigmaSquare = sigma * sigma
+        return sum + sigmaSquare
+    }, 0)
+    const sd = Math.sqrt(variance / (dataLength - 1))
+    const sharpe = 100 * average/sd
+    const volatility = sharpeSqrt * sd
+    return { average, sd, sharpe, volatility}
 }
 
 const analyseData = (startingDateStr, endingDateStr) => {
@@ -34,10 +44,10 @@ const analyseData = (startingDateStr, endingDateStr) => {
                         currentDay, percentDiff
                     })
                 }
-                const sharpe = findSharpe(percentData, sharpeSqrt)
+                const analysis = findSharpe(percentData, sharpeSqrt)
                 diffData[ticker] = {
                     percentData,
-                    sharpe
+                    analysis
                 }
             })
             return diffData
@@ -45,4 +55,22 @@ const analyseData = (startingDateStr, endingDateStr) => {
     })
 }
 
-export { analyseData }
+const filterData = (data) => {
+    let filteredData = []
+    Object.keys(data).map((ticker) => {
+        const tickerData = data[ticker]['analysis']
+        if (tickerData.sharpe > 2) {
+            return filteredData.push({
+                scrip: ticker,
+                analysis: tickerData
+            })
+        }
+    })
+    filteredData.sort((a, b) => {
+        return a.analysis.sharpe > b.analysis.sharpe ? -1 : 1
+    }).map(data => {
+        console.log(`${data.scrip} - ${data.analysis.sharpe}`)
+    })
+}
+
+export { analyseData, filterData }
