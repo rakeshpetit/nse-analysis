@@ -69,7 +69,7 @@ const filterData = (data) => {
     filteredData.sort((a, b) => {
         return a.analysis.sharpe > b.analysis.sharpe ? -1 : 1
     }).map(data => {
-        console.log(`${data.scrip} - ${data.analysis.sharpe}`)
+        console.log(`${data.scrip} - sharpe ${data.analysis.sharpe} - volatility ${data.analysis.volatility}`)
     })
 }
 
