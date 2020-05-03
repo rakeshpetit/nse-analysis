@@ -1,20 +1,23 @@
+import moment from 'moment'
 import { getURLs } from './getDates'
 import { downloadAsync, unZipAsync } from './downloadAsync'
 import { collateData } from './collateData'
-import { analyseData, filterData } from './analyseData'
+import { calculateMarks, analyseData, filterData } from './analyseData'
 // import { writeToCsv } from './dataToCsv'
-const startingDateStr = '01/01/2014'
-const endingDateStr = '31/12/2014'
+const startingDateStr = '01/01/2016'
+const endingDateStr = '31/12/2016'
 
 const urls = getURLs(startingDateStr, endingDateStr)
 // console.log(urls)
-downloadAsync(urls)
+// downloadAsync(urls)
 // unZipAsync(urls)
 // collateData(urls)
 
-// analyseData(startingDateStr, endingDateStr).then(data => {
-//     filterData(data)
-// })
+const dateStr = '01/01/2019'
+
+calculateMarks(dateStr)
+
+
 
 
 // writeToCsv(startingDateStr, endingDateStr)

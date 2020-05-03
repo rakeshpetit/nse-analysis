@@ -1,5 +1,6 @@
 import moment from 'moment'
 import { cleanData } from './cleanData'
+import { exceptionList } from './config'
 
 const findSharpe = (percentData, sharpeSqrt) => {
     let count = 0
@@ -23,8 +24,6 @@ const findSharpe = (percentData, sharpeSqrt) => {
 const analyseData = (startingDateStr, endingDateStr) => {
     return cleanData(startingDateStr, endingDateStr).then((cleanedData) => {
         {
-            // console.log(Object.keys(cleanedData[0]['RPGLIFE']))
-            // console.log(Object.keys(cleanedData[1]['RPGLIFE']))
             const startingDate = moment(startingDateStr, 'DD/MM/YYYY HH:mm')
             const endingDate = moment(endingDateStr, 'DD/MM/YYYY HH:mm')
             const numOfDays = endingDate.diff(startingDate, "days")
@@ -72,7 +71,7 @@ const filterData = (data) => {
     let filteredData = []
     Object.keys(data).map((ticker) => {
         const tickerData = data[ticker]['analysis']
-        if (tickerData.count > 50 && tickerData.sharpe > 4) {
+        if (tickerData.count > 30 && tickerData.sharpe > 4) {
             return filteredData.push({
                 scrip: ticker,
                 overallDiff: data[ticker]['overallDiff'],
@@ -80,13 +79,81 @@ const filterData = (data) => {
             })
         }
     })
-    filteredData.sort((a, b) => {
-        return a.analysis.sharpe > b.analysis.sharpe ? -1 : 1
-    }).map((data, index) => {
-        if(index < 51){
-            console.log(`${data.scrip} - count ${data.analysis.count} - sharpe ${data.analysis.sharpe} - volatility ${data.analysis.volatility} (${data.overallDiff})`)
-        }
+    return filteredData
+}
+
+const getMultiplePeriodData = (dateStr) => {
+    const dateMoment = moment(dateStr, 'DD/MM/YYYY')
+    const oneYearStr = dateMoment.clone().subtract(1, "year").format('DD/MM/YYYY');
+    const halfYearStr = dateMoment.clone().subtract(6, "month").format('DD/MM/YYYY');
+    const quarterYearStr = dateMoment.clone().subtract(3, "month").format('DD/MM/YYYY');
+    const analysisPromise = [
+        analyseData(quarterYearStr, dateStr),
+        analyseData(halfYearStr, dateStr),
+        analyseData(oneYearStr, dateStr)
+    ]
+    return Promise.all(analysisPromise).then(threeData => {
+        return threeData.map((data) => {
+            const eachData = filterData(data)
+            const maxMinData = eachData.reduce((acc, data) => {
+                if (data.analysis.sharpe > acc.maxSharpe) {
+                    acc.maxSharpe = data.analysis.sharpe
+                }
+                if (data.analysis.volatility < acc.minVolatility) {
+                    acc.minVolatility = data.analysis.volatility
+                }
+                return acc
+            }, {
+                maxSharpe: 0,
+                minVolatility: 1000,
+            })
+            const markData = eachData.map(filteredData => {
+                const sharpeMarks = filteredData.analysis.sharpe * (50 / maxMinData.maxSharpe)
+                const volatilityMarks = 10 + ((15 * maxMinData.minVolatility) / filteredData.analysis.volatility)
+                return { ...filteredData, sharpeMarks, volatilityMarks }
+            })
+            return markData.filter(item => {
+                return item.sharpeMarks > 5 && item.volatilityMarks > 5
+            }).sort((a, b) => {
+                return ((a.sharpeMarks + a.volatilityMarks) > (b.sharpeMarks + b.volatilityMarks) ? 1 : -1)
+            })
+        })
     })
 }
 
-export { analyseData, filterData }
+const calculateMarks = (dateStr) => {
+    getMultiplePeriodData(dateStr).then(data => {
+        let finalData = []
+        data.map(periodicData => {
+            periodicData.map(markData => {
+                finalData.push({
+                    scrip: markData.scrip,
+                    totalMarks: markData.sharpeMarks + markData.volatilityMarks
+                })
+
+            })
+        })
+        let totalData = []
+        const duplicate = {}
+        finalData.map(data => {
+            if (!duplicate[data.scrip]) {
+                const scripListTotal = finalData.filter(scripData => {
+                    return scripData.scrip === data.scrip
+                }).reduce((total, scripData) => {
+                    return total + scripData.totalMarks
+                }, 0)
+                totalData.push({ scrip: data.scrip, totalMarks: scripListTotal })
+                duplicate[data.scrip] = true
+            }
+        })
+        totalData.sort((a, b) => {
+            return b.totalMarks - a.totalMarks
+        }).map(data => {
+            const isException = exceptionList[data.scrip]
+            if (!isException && data.totalMarks > 80)
+                console.log(`${data.scrip} - ${data.totalMarks}`)
+        })
+    })
+}
+
+export { calculateMarks, analyseData, filterData }
