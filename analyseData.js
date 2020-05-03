@@ -87,6 +87,7 @@ const getMultiplePeriodData = (dateStr) => {
     const oneYearStr = dateMoment.clone().subtract(1, "year").format('DD/MM/YYYY');
     const halfYearStr = dateMoment.clone().subtract(6, "month").format('DD/MM/YYYY');
     const quarterYearStr = dateMoment.clone().subtract(3, "month").format('DD/MM/YYYY');
+
     const analysisPromise = [
         analyseData(quarterYearStr, dateStr),
         analyseData(halfYearStr, dateStr),
@@ -122,7 +123,14 @@ const getMultiplePeriodData = (dateStr) => {
 }
 
 const calculateMarks = (dateStr) => {
-    getMultiplePeriodData(dateStr).then(data => {
+    const dateMoment = moment(dateStr, 'DD/MM/YYYY')
+    const nextMonthMoment = dateMoment.clone().add(1, "month")
+    let nextMonthData = {}
+    return cleanData(dateStr, nextMonthMoment.format('DD/MM/YYYY')).then((cleanedData) => {
+        nextMonthData = cleanedData
+    }).then(() => {
+        return getMultiplePeriodData(dateStr)
+    }).then(data => {
         let finalData = []
         data.map(periodicData => {
             periodicData.map(markData => {
@@ -135,6 +143,8 @@ const calculateMarks = (dateStr) => {
         })
         let totalData = []
         const duplicate = {}
+        let totalReturns = 0
+        let count = 0
         finalData.map(data => {
             if (!duplicate[data.scrip]) {
                 const scripListTotal = finalData.filter(scripData => {
@@ -150,10 +160,39 @@ const calculateMarks = (dateStr) => {
             return b.totalMarks - a.totalMarks
         }).map(data => {
             const isException = exceptionList[data.scrip]
-            if (!isException && data.totalMarks > 80)
-                console.log(`${data.scrip} - ${data.totalMarks}`)
+            if (!isException && data.totalMarks > 40){
+                let returns = findReturns(nextMonthData, data.scrip, dateMoment, nextMonthMoment)
+                if(returns !== 0 && count < 30){
+                    if(returns < -50){
+                        console.log('<<<<<<Alert', returns)
+                        returns = -20
+                    }
+                    count++
+                    totalReturns = ((count -1) * totalReturns + returns) / count
+                    console.log(`${count}.${data.scrip}\tmarks: ${data.totalMarks}\treturns: (${returns})`)
+                }
+            }
         })
+        console.log(`Total returns for ${dateStr}: ${totalReturns}\n\n`)
+        return totalReturns
     })
+}
+
+const findReturns = (nextMonthData, scrip, startDateMoment, endDateMoment) => {
+    const scripData = nextMonthData[scrip]
+    // if (scrip === 'TITAN') {
+    //     console.log('scripData', scripData )
+    // }
+    const startPrice = scripData && (
+        scripData[startDateMoment.format('DD/MM/YYYY')] || scripData[startDateMoment.add(1, "day").format('DD/MM/YYYY')] || scripData[startDateMoment.add(1, "day").format('DD/MM/YYYY')] ||
+        scripData[startDateMoment.add(1, "day").format('DD/MM/YYYY')] ||
+        scripData[startDateMoment.add(1, "day").format('DD/MM/YYYY')] ||
+        scripData[startDateMoment.add(1, "day").format('DD/MM/YYYY')]
+    )
+    const endPrice = scripData && (scripData[endDateMoment.format('DD/MM/YYYY')] || scripData[endDateMoment.subtract(1, "day").format('DD/MM/YYYY')] || scripData[endDateMoment.subtract(1, "day").format('DD/MM/YYYY')] || scripData[endDateMoment.subtract(1, "day").format('DD/MM/YYYY')] ||
+        scripData[endDateMoment.subtract(1, "day").format('DD/MM/YYYY')] || scripData[endDateMoment.subtract(1, "day").format('DD/MM/YYYY')]
+    )
+    return (endPrice && startPrice) ? 100 * (endPrice.close - startPrice.close) / startPrice.close : 0
 }
 
 export { calculateMarks, analyseData, filterData }
