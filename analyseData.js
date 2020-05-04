@@ -165,7 +165,7 @@ const calculateMarks = (dateStr) => {
                 if(returns !== 0 && count < 30){
                     if(returns < -50){
                         console.log('<<<<<<Alert', returns)
-                        returns = -20
+                        returns = 0
                     }
                     count++
                     totalReturns = ((count -1) * totalReturns + returns) / count
