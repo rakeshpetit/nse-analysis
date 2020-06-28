@@ -29,7 +29,9 @@ const collateData = (urls) => {
                     const currentSymbol = currentData[symbol]
                     if (row['SERIES'] === 'EQ'
                         && +row['CLOSE'] > 100
-                        && +row['TOTTRDVAL'] > 10000) {
+                        && +row['CLOSE'] < 10000
+                        && +row['TOTTRDVAL'] > 10000
+                        ) {
                         const data = {
                             close: row['CLOSE'],
                              value: row['TOTTRDVAL']
