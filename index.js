@@ -6,10 +6,10 @@ import { downloadAsync, unZipAsync } from './downloadAsync'
 import { collateData } from './collateData'
 import { counter } from './reducers'
 // import { calculateMarks, analyseData, filterData } from './analyseData'
-import { getCleanData } from './analyseDataNew'
+import { getCleanData, analyseData } from './analyseDataNew'
 // import { writeToCsv } from './dataToCsv'
-const startingDateStr = '01/01/2016'
-const endingDateStr = '31/12/2016'
+const startingDateStr = '01/01/2017'
+const endingDateStr = '31/12/2017'
 
 const urls = getURLs(startingDateStr, endingDateStr)
 // downloadAsync(urls)
@@ -26,5 +26,8 @@ export const store = createStore(counter)
 // store.dispatch({ type: 'DECREMENT' })
 
 getCleanData('01/01/2017').then(() => {
-    console.log('store', Object.keys(store.getState()))
+    const currentYear = store.getState()['cleanCurrentYearPrice']
+    // console.log('currentYear', currentYear['NESCO'])
+    analyseData(startingDateStr, endingDateStr)
+    
 })

@@ -274,4 +274,4 @@ const findReturns = (nextMonthData, scrip, startDateMoment, endDateMoment) => {
     return (endPrice && startPrice) ? 100 * (endPrice.close - startPrice.close) / startPrice.close : 0
 }
 
-export { calculateMarks, analyseData, filterData }
+export { findSharpe, calculateMarks, analyseData, filterData }
