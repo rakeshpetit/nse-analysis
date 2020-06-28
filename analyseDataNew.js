@@ -1,4 +1,5 @@
 import moment from 'moment'
+import { exceptionList } from './config'
 import { cleanData } from './cleanData'
 import { findSharpe } from './analyseData'
 import { store } from './'
@@ -75,4 +76,32 @@ const analyseData = (startingDateStr, endingDateStr) => {
     return diffData
 }
 
-export { getCleanData, analyseData }
+const getMonthlyList = (yearly) => {
+    const monthlyList = []
+    Object.entries(yearly)
+        .filter((item) => {
+            const isException = exceptionList[item[0]]
+            return !isException && item[1].analysis.averageValue > 10000000
+        })
+        .sort((a, b) => {
+            return b[1].analysis.sharpe - a[1].analysis.sharpe
+        })
+        .map((item, index) => {
+            if (index < 50)
+                monthlyList.push({
+                    ticker: item[0],
+                    position: index + 1,
+                    analysis: item[1].analysis,
+                })
+        })
+
+    store.dispatch({
+        type: 'SAVE_SELECTED_LIST',
+        data: {
+            dateKey: '01/01/2019',
+            monthlyList
+        }
+    })
+}
+
+export { getCleanData, analyseData, getMonthlyList }
