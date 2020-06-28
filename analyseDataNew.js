@@ -1,6 +1,5 @@
 import moment from 'moment'
 import { cleanData } from './cleanData'
-import { exceptionList } from './config'
 import { findSharpe } from './analyseData'
 import { store } from './'
 
@@ -15,7 +14,8 @@ const getCleanData = (dateStr) => {
             // console.log('c', cleanedData)
             store.dispatch({ type: 'CLEANED_DATA_PAST', data: cleanedData })
         }
-    }).then(() => cleanData(dateStr, oneYearStrAfterCurrent))
+    })
+    .then(() => cleanData(dateStr, oneYearStrAfterCurrent))
         .then((cleanedData) => {
             {
                 // console.log('c', cleanedData)s
@@ -32,13 +32,17 @@ const analyseData = (startingDateStr, endingDateStr) => {
     const sharpeSqrt = Math.sqrt(numOfDays)
     let diffData = {}
     Object.keys(cleanedData).map(ticker => {
-        const tickerData = Object.keys(cleanedData[ticker])
+        let tickerData = Object.keys(cleanedData[ticker])
         if(tickerData.length > 0) {
-            tickerData.sort((a, b) => {
+            tickerData = tickerData.filter(a => {
+                const dateA = moment(a, 'DD/MM/YYYY')
+                return dateA.isBetween(startingDate, endingDate)
+            }).sort((a, b) => {
                 const dateA = moment(a, 'DD/MM/YYYY')
                 const dateB = moment(b, 'DD/MM/YYYY')
                 return dateA.isSameOrAfter(dateB) ? 1 : -1
             })
+            // console.log(tickerData)
             const percentData = []
             let startPrice = 50000
             let endPrice = 1
@@ -67,7 +71,8 @@ const analyseData = (startingDateStr, endingDateStr) => {
             }
         }
     })
-    console.log(diffData)
+    // console.log(diffData)
+    return diffData
 }
 
 export { getCleanData, analyseData }
