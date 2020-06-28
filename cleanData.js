@@ -28,8 +28,8 @@ const cleanData = (startingDateStr, endingDateStr) => {
     const endingDate = moment(endingDateStr, 'DD/MM/YYYY HH:mm')
     const startYear = startingDate.format('YYYY')
     const endYear = endingDate.format('YYYY')
-    console.log('starting', startYear)
-    console.log('end', endYear)
+    // console.log('starting', startYear)
+    // console.log('end', endYear)
     // return fetchJSONdata(startingDate, endingDate, endYear)
     const allData = {}
     let allDataPromise = []
@@ -42,7 +42,6 @@ const cleanData = (startingDateStr, endingDateStr) => {
                 const currentTickerData = yearly[ticker]
                 const filteredTickData = Object.keys(currentTickerData)
                     .filter(key => {
-                        // console.log(key)
                         const keyDate = moment(key, 'DD/MM/YYYY')
                         return keyDate.isBetween(startingDate,endingDate)
                     })

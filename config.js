@@ -1,4 +1,48 @@
+const fraudList = {
+    'ADANIENT': true,
+    'ADANIPORTS': true,
+    'ADANITRANS': true,
+    'ABAN': true,
+    'ABGSHIP': true,
+    'ALBK': true,
+    'BALMLAWRIE': true,
+    'BANKBARODA': true,
+    'BANKINDIA': true,
+    'BHEL': true,
+    'BPCL': true,
+    'CANBK': true,
+    'COALINDIA': true,
+    'COCHINSHIP': true,
+    'CONCOR': true,
+    'CORPBANK': true,
+    'DLF': true,
+    'GAIL': true,
+    'HINDCOPPER': true,
+    'HINDPETRO': true,
+    'INDIANB': true,
+    'IOC': true,
+    'MOIL': true,
+    'NMDC': true,
+    'NTPC': true,
+    'OIL': true,
+    'ONGC': true,
+    'ORIENTBANK': true,
+    'ORISSAMINE': true,
+    'PFC': true,
+    'PNB': true,
+    'POWERGRID': true,
+    'RCOM': true,
+    'RECLTD': true,
+    'RELCAPITAL': true,
+    'RELINFRA': true,
+    'SBIN': true,
+    'SBT': true,
+    'SYNDIBANK': true,
+    'UNIONBANK': true,
+}
+
 const exceptionList = {
+    ...fraudList,
     'N100': true,
     'NIFTYBEES': true,
     'NET4': true,
@@ -19,7 +63,13 @@ const exceptionList = {
     'KOTAKNIFTY': true,
     'SETFNIF50': true,
     'QGOLDHALF': true,
-    'ICICINIFTY': true
+    'ICICINIFTY': true,
+    'EBBETF0423': true,
+    'EBBETF0430': true,
+}
+
+const lowQualityList = {
+
 }
 
 export { exceptionList }
