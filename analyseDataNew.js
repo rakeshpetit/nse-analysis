@@ -76,7 +76,7 @@ const analyseData = (startingDateStr, endingDateStr) => {
     return diffData
 }
 
-const getMonthlyList = (yearly) => {
+const getMonthlyList = (yearly, dateKey) => {
     const monthlyList = []
     Object.entries(yearly)
         .filter((item) => {
@@ -87,18 +87,17 @@ const getMonthlyList = (yearly) => {
             return b[1].analysis.sharpe - a[1].analysis.sharpe
         })
         .map((item, index) => {
-            if (index < 50)
+            if (index < 75)
                 monthlyList.push({
                     ticker: item[0],
                     position: index + 1,
                     analysis: item[1].analysis,
                 })
         })
-
     store.dispatch({
         type: 'SAVE_SELECTED_LIST',
         data: {
-            dateKey: '01/01/2019',
+            dateKey,
             monthlyList
         }
     })
