@@ -1,11 +1,11 @@
-import moment from 'moment'
-import async from 'async'
+import fs from 'fs';
 import { createStore } from 'redux'
 import { getURLs } from './getDates'
 import { downloadAsync, unZipAsync } from './downloadAsync'
 import { collateData } from './collateData'
 import { counter } from './reducers'
-import { getCleanData, analyseData, getMonthlyList } from './analyseDataNew'
+import { getCleanData, calculateForYear } from './analyseDataNew'
+import { fetchListJSONdata } from './analyseReturns'
 import { writeToCsv } from './dataToCsv'
 const startingDateStr = '01/01/2018'
 const endingDateStr = '31/12/2018'
@@ -18,29 +18,20 @@ const urls = getURLs(startingDateStr, endingDateStr)
 
 export const store = createStore(counter)
 
-const calculateForYear = (year) => {
-    let yearlyCalc = []
-    let p = Promise.resolve();
-    for (let month = 0; month < 12; month++) {
-        const iStr = `01/${month < 9 ? '0' : ''}${month + 1}/${year}`
-        console.log(iStr)
-        const startDateStr = `01/${month < 9 ? '0' : ''}${month + 1}/${year - 1}`
-        const endDateStr = `01/${month < 9 ? '0' : ''}${month + 1}/${year}`
-        p = p.then(() => getCleanData(endDateStr).then(() => {
-            const yearly = analyseData(startDateStr, endDateStr)
-            console.log('yearly', endDateStr, Object.keys(yearly).length)
-            getMonthlyList(yearly, endDateStr)
-        }));
-    }
-    return p
-}
-
-calculateForYear(2019).then(() => {
-    console.log('store', store.getState()['selectedList'])
-})
-
-// getCleanData('01/01/2019').then(() => {
-//     const yearly = analyseData("01/01/2018", "01/01/2019")
-//     getMonthlyList(yearly)
+// calculateForYear(2019).then(() => {
+//     const selectedList = store.getState()['selectedList']
+//     fs.writeFile(`list.json`, JSON.stringify(selectedList), 'utf8', () => { });
 // })
+
+fetchListJSONdata().then((listData) => {
+    // console.log('list', listData)
+    store.dispatch({
+        type: 'SAVE_SELECTED_LIST',
+        data: listData
+    })
+}).then(() => getCleanData('01/01/2019'))
+.then(() => {
+    const state = Object.keys(store.getState()['cleanCurrentYearPrice'])
+    console.log('s', state)
+})
 

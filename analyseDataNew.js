@@ -103,4 +103,20 @@ const getMonthlyList = (yearly, dateKey) => {
     })
 }
 
-export { getCleanData, analyseData, getMonthlyList }
+const calculateForYear = (year) => {
+    let p = Promise.resolve();
+    for (let month = 0; month < 12; month++) {
+        const iStr = `01/${month < 9 ? '0' : ''}${month + 1}/${year}`
+        console.log(iStr)
+        const startDateStr = `01/${month < 9 ? '0' : ''}${month + 1}/${year - 1}`
+        const endDateStr = `01/${month < 9 ? '0' : ''}${month + 1}/${year}`
+        p = p.then(() => getCleanData(endDateStr).then(() => {
+            const yearly = analyseData(startDateStr, endDateStr)
+            console.log('yearly', endDateStr, Object.keys(yearly).length)
+            getMonthlyList(yearly, endDateStr)
+        }));
+    }
+    return p
+}
+
+export { getCleanData, analyseData, getMonthlyList, calculateForYear }
