@@ -1,8 +1,12 @@
 import fs from 'fs'
 import moment from 'moment'
+import { store } from './'
 
 const fetchJSONdata = (startingDate, endingDate, year) => {
-    
+    const jsonData = store.getState()['yearlyJSONData']
+    if (jsonData && jsonData[year]) {
+        return Promise.resolve(jsonData[year])
+    }
     return new Promise((resolve, reject) => {
         fs.readFile(`data${year}.json`, 'utf8', function readFileCallback(err, data) {
             if (err) {
@@ -18,6 +22,13 @@ const fetchJSONdata = (startingDate, endingDate, year) => {
                         cleanedData[ticker] = obj[ticker]
                     }
                 })
+                store.dispatch({
+                    type: 'SAVE_YEARLY_JSON_DATA',
+                    data: {
+                        yearKey: year,
+                        cleanedData
+                    }
+                })
                 resolve(cleanedData)
             }
         });
@@ -28,8 +39,6 @@ const cleanData = (startingDateStr, endingDateStr) => {
     const endingDate = moment(endingDateStr, 'DD/MM/YYYY HH:mm')
     const startYear = startingDate.format('YYYY')
     const endYear = endingDate.format('YYYY')
-    // console.log('starting', startYear)
-    // console.log('end', endYear)
     // return fetchJSONdata(startingDate, endingDate, endYear)
     const allData = {}
     let allDataPromise = []

@@ -1,4 +1,5 @@
 import moment from 'moment'
+import _ from 'lodash'
 import { exceptionList } from './config'
 import { cleanData } from './cleanData'
 import { findSharpe } from './analyseData'
@@ -12,21 +13,25 @@ const getCleanData = (dateStr) => {
     let nextMonthData = {}
     return cleanData(oneYearStrBeforeCurrent, dateStr).then((cleanedData) => {
         {
-            // console.log('c', cleanedData)
             store.dispatch({ type: 'CLEANED_DATA_PAST', data: cleanedData })
         }
     })
     .then(() => cleanData(dateStr, oneYearStrAfterCurrent))
         .then((cleanedData) => {
             {
-                // console.log('c', cleanedData)s
                 store.dispatch({ type: 'CLEANED_DATA_CURRENT', data: cleanedData })
             }
+        })
+        .then(() => {
+            const pastData = store.getState()['cleanLastYearPrice']
+            const currentData = store.getState()['cleanCurrentYearPrice']
+            const combinedData = _.merge(pastData, currentData);
+            store.dispatch({ type: 'COMBINED_DATA', data: combinedData })
         })
 }
 
 const analyseData = (startingDateStr, endingDateStr) => {
-    const cleanedData = store.getState()['cleanLastYearPrice']
+    const cleanedData = store.getState()['combinedYearPrice']
     const startingDate = moment(startingDateStr, 'DD/MM/YYYY HH:mm')
     const endingDate = moment(endingDateStr, 'DD/MM/YYYY HH:mm')
     const numOfDays = endingDate.diff(startingDate, "days")
@@ -43,7 +48,7 @@ const analyseData = (startingDateStr, endingDateStr) => {
                 const dateB = moment(b, 'DD/MM/YYYY')
                 return dateA.isSameOrAfter(dateB) ? 1 : -1
             })
-            // console.log(tickerData)
+            
             const percentData = []
             let startPrice = 50000
             let endPrice = 1
@@ -81,7 +86,9 @@ const getMonthlyList = (yearly, dateKey) => {
     Object.entries(yearly)
         .filter((item) => {
             const isException = exceptionList[item[0]]
-            return !isException && item[1].analysis.averageValue > 10000000
+            return !isException 
+                && item[1].analysis.count > 150
+                && item[1].analysis.averageValue > 100000
         })
         .sort((a, b) => {
             return b[1].analysis.sharpe - a[1].analysis.sharpe
@@ -112,7 +119,6 @@ const calculateForYear = (year) => {
         const endDateStr = `01/${month < 9 ? '0' : ''}${month + 1}/${year}`
         p = p.then(() => getCleanData(endDateStr).then(() => {
             const yearly = analyseData(startDateStr, endDateStr)
-            console.log('yearly', endDateStr, Object.keys(yearly).length)
             getMonthlyList(yearly, endDateStr)
         }));
     }
