@@ -41,8 +41,75 @@ const fraudList = {
     'UNIONBANK': true,
 }
 
+const noDataList = {
+    '2010': {
+
+    },
+    '2011': {
+        'INFOSYSTCH': true,
+        'COREPROTEC': true,
+        'ESCORTS': true,
+        'HEROHONDA': true,
+        'RELMEDIA': true,
+        'ATLASCYCLE': true,
+        'RUCHISOYA': true,
+        'PTC': true,
+        'BAJAUTOFIN': true,
+        'PARSVNATH': true,
+        'KTKBANK': true,
+        'WOCKPHARMA': true,
+        'ADANIPOWER': true,
+        'KWALITY': true,
+        'SURYAPHARM': true,
+        'ATLANTA': true,
+    },
+    '2012': {
+
+    },
+    '2013': {
+
+    },
+    '2014': {
+
+    },
+    '2015': {
+        'SHREECEM': true,
+        'GRANULES': true,
+        'GUJRATGAS': true,
+        'RANBAXY': true,
+        'PAGEIND': true,
+        'AHMEDFORGE': true,
+        'INGVYSYABK': true,
+    },
+    '2016': {
+
+    },
+    '2017': {
+        'FRETAIL': true,
+        'GOACARBON': true,
+        'CAIRN': true,
+        'UPERGANGES': true,
+    },
+    '2018': {
+
+    },
+    '2019': {
+        'ABBOTINDIA': true,
+        'MERCK': true,
+        // 'UPERGANGES': true,
+        // 'DWARKESH': true,
+        // 'CAIRN': true,
+        // 'NRBBEARING': true,
+        'INFIBEAM': true
+    },
+    '2020': {
+
+    }
+}
+
 const exceptionList = {
     ...fraudList,
+    ...noDataList,
     'N100': true,
     'NIFTYBEES': true,
     'NET4': true,
@@ -53,6 +120,8 @@ const exceptionList = {
     'RELGOLD': true,
     'SETFNIFBK': true,
     'KOTAKBKETF': true,
+    'UTINIFTETF': true,
+    'BSLGOLDETF': true,
     'JUNIORBEES': true,
     'BANKBEES': true,
     'SETFGOLD': true,
@@ -66,10 +135,8 @@ const exceptionList = {
     'ICICINIFTY': true,
     'EBBETF0423': true,
     'EBBETF0430': true,
+    'IDBIGOLD': true,
+    'LIQUIDBEES': true,
 }
 
-const lowQualityList = {
-
-}
-
-export { exceptionList }
+export { noDataList, exceptionList }

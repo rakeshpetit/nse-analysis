@@ -40,7 +40,7 @@ const collateData = (urls) => {
                     }
                 })
                 .on('end', (rowCount) => {
-                    fs.writeFile(`data${year}.json`, JSON.stringify(currentData), 'utf8', () => { });
+                    fs.writeFileSync(`data${year}.json`, JSON.stringify(currentData), 'utf8');
                 });
         }
         catch (e) {

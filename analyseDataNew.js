@@ -70,14 +70,15 @@ const analyseData = (startingDateStr, endingDateStr) => {
                 })
             }
             const analysis = findSharpe(percentData, sharpeSqrt)
-            diffData[ticker] = {
-                percentData,
-                overallDiff: 100 * (endPrice - startPrice) / endPrice,
-                analysis
-            }
+            if (analysis.count > 100){
+                diffData[ticker] = {
+                    percentData,
+                    overallDiff: 100 * (endPrice - startPrice) / endPrice,
+                    analysis
+                }
+            }   
         }
     })
-    // console.log(diffData)
     return diffData
 }
 
@@ -87,14 +88,14 @@ const getMonthlyList = (yearly, dateKey) => {
         .filter((item) => {
             const isException = exceptionList[item[0]]
             return !isException 
-                && item[1].analysis.count > 150
+                && item[1].analysis.count > 100
                 && item[1].analysis.averageValue > 100000
         })
         .sort((a, b) => {
             return b[1].analysis.sharpe - a[1].analysis.sharpe
         })
         .map((item, index) => {
-            if (index < 75)
+            // if (index < 500)
                 monthlyList.push({
                     ticker: item[0],
                     position: index + 1,
