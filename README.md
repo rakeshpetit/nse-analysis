@@ -9,3 +9,14 @@
 
 - Backup Postgres data so that it can be recovered easily
 - Adjust prices for splits/bonuses
+
+## Backing up data
+
+```sql
+CREATE TABLE backup_stock_data AS
+SELECT * FROM stock_data
+WHERE 1=0;
+
+INSERT INTO backup_stock_data
+SELECT * FROM stock_data;
+```
