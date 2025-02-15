@@ -29,6 +29,15 @@ CREATE TABLE stock_data (
 );
 ```
 
+### Stock symbols table
+
+```sql
+CREATE TABLE stock_symbols (
+    id SERIAL PRIMARY KEY,
+    symbol VARCHAR(255) UNIQUE
+);
+```
+
 ### Stock splits table
 
 ```sql
