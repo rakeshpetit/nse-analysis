@@ -10,7 +10,37 @@
 - Backup Postgres data so that it can be recovered easily
 - Adjust prices for splits/bonuses
 
-## Backup/Restore data
+## Stock database tables
+
+### Stock prices table
+
+```sql
+CREATE TABLE stock_data (
+    id SERIAL PRIMARY KEY,  
+    symbol VARCHAR(10),
+    series VARCHAR(10),
+    prev_close NUMERIC,
+    open NUMERIC,
+    high NUMERIC,
+    low NUMERIC,
+    close NUMERIC,
+    date DATE,
+    UNIQUE (symbol, date) 
+);
+```
+
+### Stock splits table
+
+```sql
+CREATE TABLE stock_splits (
+    symbol TEXT NOT NULL,
+    split_date TIMESTAMP NOT NULL,
+    split_ratio NUMERIC NOT NULL,
+    PRIMARY KEY (symbol, split_date)
+);
+```
+
+## Backup/Restore stock data
 
 ### Backing up data
 
