@@ -8,12 +8,17 @@ type DataType = {
   close: number;
 };
 
+type SymbolType = {
+  id: number;
+  symbol: string;
+};
+
 const Dashboard = () => {
   const [symbol, setSymbol] = useState("RELIANCE");
   const [data, setData] = useState<DataType[]>([]);
-  const [symbols, setSymbols] = useState<string[]>([]);
+  const [symbols, setSymbols] = useState<SymbolType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<SymbolType[]>([]);
 
   useEffect(() => {
     axios
@@ -31,8 +36,8 @@ const Dashboard = () => {
 
   const handleSearch = debounce((term: string) => {
     if (term.length > 0) {
-      const filteredSymbols = symbols.filter((symbol) =>
-        symbol.toLowerCase().includes(term.toLowerCase())
+      const filteredSymbols = symbols.filter((s) =>
+        s.symbol.toLowerCase().includes(term.toLowerCase())
       );
       setSuggestions(filteredSymbols);
     } else {
@@ -62,9 +67,9 @@ const Dashboard = () => {
       />
       {suggestions.length > 0 && (
         <ul>
-          {suggestions.map((symbol) => (
-            <li key={symbol} onClick={() => handleSymbolSelect(symbol)}>
-              {symbol}
+          {suggestions.map((s) => (
+            <li key={s.id} onClick={() => handleSymbolSelect(s.symbol)}>
+              {s.symbol}
             </li>
           ))}
         </ul>

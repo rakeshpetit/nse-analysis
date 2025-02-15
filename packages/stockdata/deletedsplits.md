@@ -12,6 +12,15 @@ delete from stock_splits where symbol like 'SENCO' and split_date > '2025-01-05'
 delete from stock_splits where symbol like 'CYIENT' and split_date > '2025-01-05';
 delete from stock_splits where symbol like 'NAVA' and split_date > '2025-01-05';
 delete from stock_splits where symbol like 'JAIBALAJI' and split_date > '2025-01-05';
+delete from stock_splits where symbol like 'DRREDDY' and split_date > '2024-10-05';
+delete from stock_splits where symbol like 'KRITI' and split_date > '2024-10-05';
+delete from stock_splits where symbol like 'CREATIVEYE' and split_date > '2024-10-05';
+delete from stock_splits where symbol like 'GARFIBRES' and split_date > '2024-10-05';
+delete from stock_splits where symbol like 'KPIGREEN' and split_date > '2024-10-05';
+delete from stock_splits where symbol like 'CALSOFT' and split_date > '2024-10-05';
+delete from stock_splits where symbol like 'JAGSNPHARM' and split_date > '2024-10-05';
+delete from stock_splits where symbol like 'WANBURY' and split_date > '2024-10-05';
+delete from stock_splits where symbol like 'SPCENET' and split_date > '2024-10-05';
 ```
 
 ## Correct mistaken edits

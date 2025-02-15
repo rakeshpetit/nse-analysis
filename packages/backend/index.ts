@@ -12,6 +12,10 @@ app.use(
   })
 );
 
+app.get("/symbols", async (req, res) => {
+  const result = await pool.query("SELECT * FROM stock_symbols");
+  res.json(result.rows);
+});
 app.get("/prices/:symbol", async (req, res) => {
   const { symbol } = req.params;
   const result = await pool.query(
