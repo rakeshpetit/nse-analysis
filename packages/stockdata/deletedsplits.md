@@ -7,6 +7,11 @@ delete from stock_splits where symbol like 'AGIIL' and split_date > '2025-01-30'
 delete from stock_splits where symbol like 'KSOLVES' and split_date > '2025-01-30';
 delete from stock_splits where symbol like 'REDTAPE' and split_date > '2025-01-30';
 delete from stock_splits where symbol like 'IGL' and split_date > '2025-01-05';
+delete from stock_splits where symbol like 'JBMA' and split_date > '2025-01-05';
+delete from stock_splits where symbol like 'SENCO' and split_date > '2025-01-05';
+delete from stock_splits where symbol like 'CYIENT' and split_date > '2025-01-05';
+delete from stock_splits where symbol like 'NAVA' and split_date > '2025-01-05';
+delete from stock_splits where symbol like 'JAIBALAJI' and split_date > '2025-01-05';
 ```
 
 ## Correct mistaken edits
