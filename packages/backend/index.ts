@@ -1,14 +1,7 @@
 import express from "express";
-import { Pool } from "pg";
+const { pool } = require("@nse-analysis/common/pg");
 
 const app = express();
-const pool = new Pool({
-  user: "postgres",
-  host: "localhost",
-  database: "stock_data",
-  password: "password",
-  port: 5432,
-});
 
 app.get("/prices/:symbol", async (req, res) => {
   const { symbol } = req.params;
