@@ -76,7 +76,7 @@ async function processCSVFiles(rootDir) {
     await client.connect();
     console.log("Connected to PostgreSQL");
 
-    const years = ["2024"];
+    const years = ["2025"];
     for (const year of years) {
       const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN"];
       for (const month of months) {
@@ -113,12 +113,35 @@ async function testOneCSVFile() {
   }
 }
 
+const stockDataQuery = `SELECT * FROM stock_data where symbol = 'SHRIRAMFIN' AND EXTRACT(YEAR FROM date) = 2024 AND EXTRACT(MONTH FROM date)= '07' order by date`;
+const stockSplitQuery = `SELECT * FROM stock_splits order by split_date desc limit 35`;
+
+const uniqueStocksQuery = `
+WITH stock_splits_cte AS (
+    SELECT * 
+    FROM stock_splits 
+    ORDER BY split_date DESC 
+    LIMIT 35
+),
+stock_data_cte AS (
+    SELECT sd.*, ss.symbol AS split_symbol, ss.split_date
+    FROM stock_data sd
+    JOIN stock_splits_cte ss 
+    ON sd.symbol = ss.symbol
+    WHERE EXTRACT(YEAR FROM sd.date) = EXTRACT(YEAR FROM ss.split_date)
+      AND EXTRACT(MONTH FROM sd.date) = EXTRACT(MONTH FROM ss.split_date)
+)
+SELECT * 
+FROM stock_data_cte
+-- where split_symbol like 'IGL'
+ORDER BY split_date DESC, date;
+`;
 async function fetchRows() {
   try {
     await client.connect();
     console.log("Connected to PostgreSQL");
 
-    const result = await client.query("SELECT * FROM stock_data");
+    const result = await client.query(stockDataQuery);
     console.log("Rows in the database:");
     console.table(result.rows);
   } catch (err) {
