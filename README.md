@@ -66,10 +66,42 @@ SELECT * FROM backup_stock_data;
 
 ## Adjusting for splits/bonuses
 
-- Step 1: Identify the split date and the split ratio. 1:1 split means the price
-  is halved, so ratio is 2
-- Step 2: Update the historical prices for the symbol 'RELIANCE' and round to 2
-  decimal places
+Script to detect all potential anomalies in price between two consecutive dates
+and insert them in the `stock_splits` table.This data can be updated with the
+appropriate splits manually and then `stock_data` can be reupdated with the
+correct prices.
+
+```sql
+WITH price_changes AS (
+    SELECT
+        symbol,
+        date,
+        close,
+        LEAD(close) OVER (PARTITION BY symbol ORDER BY date) AS next_close
+    FROM stock_data
+),
+potential_splits AS (
+    SELECT
+        symbol,
+        date AS split_date,
+        close,
+        next_close,
+        (close - next_close) / close AS price_drop_ratio
+    FROM price_changes
+    WHERE (close - next_close) / close BETWEEN 0.2 AND 0.9
+)
+INSERT INTO stock_splits (symbol, split_date, split_ratio)
+SELECT
+    symbol,
+    split_date,
+    1.0 AS split_ratio 
+FROM potential_splits;
+```
+
+- Identify the split date and the split ratio. 1:1 split means the price is
+  halved, so ratio is 2
+- Update the historical prices for the symbol 'RELIANCE' and round to 2 decimal
+  places
 
 ```sql
 
