@@ -21,11 +21,6 @@ async function insertData(
         `;
     const values = [symbol, series, prevClose, open, high, low, close, date];
     const res = await client.query(query, values);
-    console.log(
-      "Insert successful:",
-      res.rowCount,
-      `row(s) inserted on ${date}`
-    );
   } catch (err) {
     if (err.code === "23505") {
       console.log(
@@ -77,21 +72,27 @@ async function processCSV(filePath) {
 }
 
 async function processCSVFiles(rootDir) {
-  await client.connect();
-  console.log("Connected to PostgreSQL");
+  try {
+    await client.connect();
+    console.log("Connected to PostgreSQL");
 
-  const years = fs.readdirSync(rootDir);
-  for (const year of years) {
-    const months = fs.readdirSync(path.join(rootDir, year));
-    for (const month of months) {
-      const files = fs.readdirSync(path.join(rootDir, year, month));
-      for (const file of files) {
-        if (file.endsWith(".csv")) {
-          const filePath = path.join(rootDir, year, month, file);
-          processCSV(filePath);
+    const years = ["2024"];
+    for (const year of years) {
+      const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN"];
+      for (const month of months) {
+        const files = fs.readdirSync(path.join(rootDir, year, month));
+        for (const file of files) {
+          if (file.endsWith(".csv")) {
+            const filePath = path.join(rootDir, year, month, file);
+            processCSV(filePath);
+          }
         }
       }
     }
+  } catch (err) {
+    console.error("Error connecting to PostgreSQL:", err);
+  } finally {
+    console.log("Disconnected from PostgreSQL");
   }
 }
 
