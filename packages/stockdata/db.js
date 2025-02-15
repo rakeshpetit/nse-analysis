@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const csv = require("csv-parser");
-const { client } = require("./pg");
+const { client } = require("@nse-analysis/common/pg");
 const { extractDateFromFileName } = require("./utils");
 
 async function insertData(

@@ -1,5 +1,5 @@
 {
-  "name": "archived",
+  "name": "@nse-analysis/archived",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
