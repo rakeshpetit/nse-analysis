@@ -5,9 +5,10 @@ const app = express();
 
 app.get("/prices/:symbol", async (req, res) => {
   const { symbol } = req.params;
-  const result = await pool.query("SELECT * FROM prices WHERE symbol = $1", [
-    symbol,
-  ]);
+  const result = await pool.query(
+    "SELECT * FROM stock_data WHERE symbol = $1 order by date",
+    [symbol]
+  );
   res.json(result.rows);
 });
 
