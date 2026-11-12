@@ -3,10 +3,13 @@ import path from "node:path";
 import { parse } from "csv-parse/sync";
 import type pg from "pg";
 import type { ConfirmDemerger, Decision } from "./decisions";
+import type { Securities } from "./securities";
 
 /** A Corporate Action as listed in a Reference Snapshot. */
 interface CorporateAction {
+  /** The symbol NSE lists it under; the Security it is about may have traded under another one. */
   symbol: string;
+  securityId: string;
   description: string;
   /** ISO date. */
   exDate: string;
@@ -22,7 +25,7 @@ export interface SkippedAction {
 
 /** The combined factor of one Security's ex-date, and the product of it and every later one. */
 export interface FactorRow {
-  symbol: string;
+  securityId: string;
   exDate: string;
   factor: Fraction;
   /** The part of `factor` a price jump is expected for: `factor` without any rights issue at or above its prior close. */
@@ -32,7 +35,7 @@ export interface FactorRow {
 
 /** The combined Adjustment Factor of one Security's ex-date. */
 interface ExDateFactor {
-  symbol: string;
+  securityId: string;
   exDate: string;
   factor: Fraction;
   jump: Fraction;
@@ -56,22 +59,22 @@ export interface ExDateBars {
  * The unadjusted Daily Bars either side of a Security's ex-date. A rights issue's
  * factor depends on the prior close, a demerger's estimate on that and the ex-date's open.
  */
-export type BarsAround = (symbol: string, exDate: string) => Promise<ExDateBars>;
+export type BarsAround = (securityId: string, exDate: string) => Promise<ExDateBars>;
 
 /** BarsAround reading the unadjusted Daily Bars in Postgres. */
 export const barsAroundFrom =
   (db: Pick<pg.Pool, "query">): BarsAround =>
-  async (symbol, exDate) => {
+  async (securityId, exDate) => {
     const [prev, next] = await Promise.all([
       db.query<{ tradeDate: string; close: string }>(
         `SELECT trade_date::text AS "tradeDate", close::text FROM core.daily_bar
-         WHERE symbol = $1 AND trade_date < $2::date ORDER BY trade_date DESC LIMIT 1`,
-        [symbol, exDate],
+         WHERE security_id = $1 AND trade_date < $2::date ORDER BY trade_date DESC LIMIT 1`,
+        [securityId, exDate],
       ),
       db.query<{ tradeDate: string; open: string }>(
         `SELECT trade_date::text AS "tradeDate", open::text FROM core.daily_bar
-         WHERE symbol = $1 AND trade_date >= $2::date ORDER BY trade_date LIMIT 1`,
-        [symbol, exDate],
+         WHERE security_id = $1 AND trade_date >= $2::date ORDER BY trade_date LIMIT 1`,
+        [securityId, exDate],
       ),
     ]);
     return { prev: prev.rows[0], next: next.rows[0] };
@@ -90,6 +93,8 @@ export interface AdjustmentPlan {
 
 /** A demerger awaiting a `confirm_demerger` Review Decision, with the estimate to judge. */
 export interface PendingDemerger extends ExDateBars {
+  securityId: string;
+  /** The symbol NSE lists it under. */
   symbol: string;
   exDate: string;
   /** Previous close ÷ ex-date open; undefined when a bar is missing or the open is not positive. */
@@ -152,7 +157,7 @@ function ratio(text: string): { a: bigint; b: bigint } {
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
 /** ISO date from NSE's `DD-Mon-YYYY`, or undefined for anything else (e.g. "-"). */
-function isoDate(text: string): string | undefined {
+export function isoDate(text: string): string | undefined {
   const m = /^(\d{2})-([A-Za-z]{3})-(\d{4})$/.exec(text.trim());
   const month = m ? MONTHS.indexOf(m[2]!.toUpperCase()) : -1;
   if (!m || month < 0) return undefined;
@@ -205,8 +210,11 @@ async function loadInterpretations(referenceDir: string): Promise<Map<string, In
   return byDescription;
 }
 
-/** The newest `reference/corporate-actions/*.json` by file name, as Corporate Actions in the window. */
-async function loadActions(referenceDir: string, startDate: string): Promise<CorporateAction[]> {
+/**
+ * The newest `reference/corporate-actions/*.json` by file name, as Corporate Actions in the
+ * window. An action for a symbol no Security with Daily Bars ever traded as is ignored.
+ */
+async function loadActions(referenceDir: string, startDate: string, securities: Securities): Promise<CorporateAction[]> {
   const dir = path.join(referenceDir, "corporate-actions");
   let names: string[];
   try {
@@ -222,13 +230,16 @@ async function loadActions(referenceDir: string, startDate: string): Promise<Cor
   const listed: unknown = JSON.parse((await readIfExists(file))!);
   if (!Array.isArray(listed)) throw new Error(`${file}: expected a JSON array of Corporate Actions`);
 
-  // NSE sometimes lists the same action twice; it must only count once.
+  // NSE sometimes lists the same action twice (under either symbol of a renamed Security); it must only count once.
   const unique = new Map<string, CorporateAction>();
   for (const entry of listed as Record<string, unknown>[]) {
     const exDate = isoDate(String(entry.exDate ?? ""));
     if (exDate === undefined || exDate < startDate) continue;
-    const action = { symbol: String(entry.symbol), description: String(entry.subject), exDate };
-    unique.set(JSON.stringify([action.symbol, action.exDate, action.description]), action);
+    const symbol = String(entry.symbol);
+    const securityId = securities.at(symbol, exDate);
+    if (securityId === undefined) continue;
+    const action = { symbol, securityId, description: String(entry.subject), exDate };
+    unique.set(JSON.stringify([action.securityId, action.exDate, action.description]), action);
   }
   return [...unique.values()];
 }
@@ -298,11 +309,12 @@ function factorOf(i: Interpretation): Outcome {
  * The Corporate Actions left once the ones a person rejected are ignored. A
  * rejection that matches nothing is an error (the snapshot may have changed under it).
  */
-function withoutRejected(actions: CorporateAction[], decisions: Decision[]): CorporateAction[] {
+function withoutRejected(actions: CorporateAction[], decisions: Decision[], securities: Securities): CorporateAction[] {
   let kept = actions;
   for (const d of decisions) {
     if (d.kind !== "reject_action") continue;
-    const matches = (a: CorporateAction) => a.symbol === d.symbol && a.exDate === d.date;
+    const securityId = securities.at(d.symbol, d.date);
+    const matches = (a: CorporateAction) => a.securityId === securityId && a.exDate === d.date;
     if (!actions.some(matches)) {
       throw new Error(`${d.where}: no Corporate Action for ${d.symbol} going ex on ${d.date} to reject`);
     }
@@ -328,18 +340,21 @@ function demergerEstimate({ prev, next }: ExDateBars): Fraction | undefined {
   return close && open ? fraction(close.num * open.den, close.den * open.num) : undefined;
 }
 
-/** The Review Decisions confirming demergers, by symbol and ex-date; each one must match a demerger. */
+/** The Review Decisions confirming demergers, by Security and ex-date; each one must match a demerger. */
 class Confirmations {
   private readonly byKey = new Map<string, ConfirmDemerger>();
   private readonly used = new Set<string>();
 
-  constructor(decisions: Decision[]) {
-    for (const d of decisions) if (d.kind === "confirm_demerger") this.byKey.set(`${d.symbol}|${d.date}`, d);
+  constructor(decisions: Decision[], securities: Securities) {
+    for (const d of decisions) {
+      // A symbol no Security traded as can match nothing, so it is reported as unused.
+      if (d.kind === "confirm_demerger") this.byKey.set(`${securities.at(d.symbol, d.date) ?? d.symbol}|${d.date}`, d);
+    }
   }
 
   /** The confirmation for a demerger, if a person gave one. */
-  take(symbol: string, exDate: string): ConfirmDemerger | undefined {
-    const key = `${symbol}|${exDate}`;
+  take(securityId: string, exDate: string): ConfirmDemerger | undefined {
+    const key = `${securityId}|${exDate}`;
     this.used.add(key);
     return this.byKey.get(key);
   }
@@ -370,7 +385,7 @@ function resolveDemerger(
   }
   return {
     skip: "demerger has no ratio; its estimated factor is applied only once a Review Decision (confirm_demerger) confirms it",
-    pending: { symbol: action.symbol, exDate: action.exDate, ...bars, ...(estimate && { estimate }) },
+    pending: { securityId: action.securityId, symbol: action.symbol, exDate: action.exDate, ...bars, ...(estimate && { estimate }) },
   };
 }
 
@@ -383,11 +398,11 @@ async function resolve(
 ): Promise<Resolved | { skip: string; pending?: PendingDemerger }> {
   if ("skip" in outcome) return outcome;
   if ("demerger" in outcome) {
-    return resolveDemerger(action, await barsAround(action.symbol, action.exDate), confirmations.take(action.symbol, action.exDate));
+    return resolveDemerger(action, await barsAround(action.securityId, action.exDate), confirmations.take(action.securityId, action.exDate));
   }
   if (!("rights" in outcome)) return { factor: outcome, jump: outcome };
 
-  const { prev } = await barsAround(action.symbol, action.exDate);
+  const { prev } = await barsAround(action.securityId, action.exDate);
   if (prev === undefined) return { skip: "rights issue has no Daily Bar before its ex-date to take a prior close from" };
   const price = positivePrice(prev.close, "prior close");
   if (price === undefined) return { skip: `prior close must be a positive number, got "${prev.close}"` };
@@ -397,11 +412,11 @@ async function resolve(
 }
 
 /** Several actions on one ex-date multiply together. */
-function addFactor(combined: Map<string, ExDateFactor>, symbol: string, exDate: string, add: Resolved): void {
-  const key = `${symbol}|${exDate}`;
+function addFactor(combined: Map<string, ExDateFactor>, securityId: string, exDate: string, add: Resolved): void {
+  const key = `${securityId}|${exDate}`;
   const earlier = combined.get(key);
   combined.set(key, {
-    symbol,
+    securityId,
     exDate,
     factor: earlier ? multiply(earlier.factor, add.factor) : add.factor,
     jump: earlier ? multiply(earlier.jump, add.jump) : add.jump,
@@ -410,7 +425,8 @@ function addFactor(combined: Map<string, ExDateFactor>, symbol: string, exDate: 
 
 /**
  * Turns the latest Reference Snapshot and the Action Interpretations into the
- * Adjustment Factors to apply. A Corporate Action whose description has no
+ * Adjustment Factors to apply. A Corporate Action for a symbol no Security traded as is
+ * ignored, and one listed under either symbol of a renamed Security attaches to it. A Corporate Action whose description has no
  * interpretation (or one of an unsupported type) is skipped and reported, never
  * guessed. A "not price-relevant" one needs no factor and is not reported. A
  * rights issue takes its prior close from `barsAround`; without a Daily Bar
@@ -422,13 +438,14 @@ export async function planAdjustments(
   referenceDir: string,
   startDate: string,
   decisions: Decision[],
+  securities: Securities,
   barsAround: BarsAround,
 ): Promise<AdjustmentPlan> {
   const [listed, interpretations] = await Promise.all([
-    loadActions(referenceDir, startDate),
+    loadActions(referenceDir, startDate, securities),
     loadInterpretations(referenceDir),
   ]);
-  const actions = withoutRejected(listed, decisions);
+  const actions = withoutRejected(listed, decisions, securities);
 
   // Every row is shape-checked, applied or not; a wrong one is held for review.
   const outcomes = new Map<string, Outcome>();
@@ -442,7 +459,7 @@ export async function planAdjustments(
     }
   }
 
-  const confirmations = new Confirmations(decisions);
+  const confirmations = new Confirmations(decisions, securities);
   const skipped: SkippedAction[] = [];
   const pendingDemergers: PendingDemerger[] = [];
   const pending = new Set<string>();
@@ -460,25 +477,27 @@ export async function planAdjustments(
     }
     const resolved = await resolve(action, outcome, barsAround, confirmations);
     if ("skip" in resolved) {
-      skipped.push({ ...action, reason: resolved.skip });
+      skipped.push({ symbol: action.symbol, exDate: action.exDate, description: action.description, reason: resolved.skip });
       if (resolved.pending) pendingDemergers.push(resolved.pending);
       continue;
     }
-    addFactor(combined, action.symbol, action.exDate, resolved);
+    addFactor(combined, action.securityId, action.exDate, resolved);
   }
 
   confirmations.assertAllUsed();
 
   // Actions a person added are not in NSE's list, and need no interpretation.
   for (const d of decisions) {
-    if (d.kind === "add_action") addFactor(combined, d.symbol, d.date, { factor: d.factor, jump: d.factor });
+    if (d.kind !== "add_action") continue;
+    const securityId = securities.at(d.symbol, d.date);
+    if (securityId !== undefined) addFactor(combined, securityId, d.date, { factor: d.factor, jump: d.factor });
   }
 
-  const bySymbol = new Map<string, ExDateFactor[]>();
-  for (const c of combined.values()) bySymbol.set(c.symbol, [...(bySymbol.get(c.symbol) ?? []), c]);
+  const bySecurity = new Map<string, ExDateFactor[]>();
+  for (const c of combined.values()) bySecurity.set(c.securityId, [...(bySecurity.get(c.securityId) ?? []), c]);
 
   const factors: FactorRow[] = [];
-  for (const rows of bySymbol.values()) {
+  for (const rows of bySecurity.values()) {
     rows.sort((a, b) => a.exDate.localeCompare(b.exDate));
     let cumulative = ONE;
     for (const row of rows.reverse()) {

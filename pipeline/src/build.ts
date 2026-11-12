@@ -9,6 +9,7 @@ import {
 } from "./adjustments";
 import { JUMP_THRESHOLD } from "./config";
 import { assertAddedActionsApply, dismissBreaks, loadDecisions } from "./decisions";
+import { dropEmptySecurities, loadSecurities, loadSymbolChanges, writeSecurities } from "./securities";
 import { withTransaction, type Db } from "./db";
 
 export interface BuildOptions {
@@ -66,6 +67,35 @@ const IN_SCOPE_ROWS = `
   WHERE to_date(btrim(date1), 'DD-Mon-YYYY') >= $1::date`;
 
 /**
+ * In-scope bars (EQ and BE only) with the Security each belongs to: the one holding the
+ * symbol on that Trading Day. Series plays no part, so a move between EQ and BE keeps it.
+ */
+const SCOPED_BARS = `(${IN_SCOPE_ROWS}) n
+  CROSS JOIN LATERAL (
+    SELECT s.security_id FROM core.security_symbol s
+    WHERE s.symbol = n.symbol AND s.from_date <= n.trade_date
+    ORDER BY s.from_date DESC LIMIT 1
+  ) holder
+  WHERE n.series IN ('EQ', 'BE')`;
+
+/** A Security has one Daily Bar a day. Two (e.g. under its old and new symbol) mean the symbol change dates are wrong. */
+async function assertOneBarPerSecurityDay(client: pg.PoolClient, startDate: string): Promise<void> {
+  const { rows } = await client.query<{ security_id: string; trade_date: string; bars: string }>(
+    `SELECT security_id, trade_date::text, string_agg(DISTINCT symbol || ' ' || series, ', ') AS bars
+     FROM ${SCOPED_BARS}
+     GROUP BY security_id, trade_date
+     HAVING count(DISTINCT (symbol, series)) > 1
+     ORDER BY trade_date, security_id LIMIT 20`,
+    [startDate],
+  );
+  if (rows.length === 0) return;
+  throw new Error(
+    `A Security has more than one Daily Bar on a Trading Day:\n` +
+      rows.map((r) => `  ${r.trade_date} ${r.security_id}: ${r.bars}`).join("\n"),
+  );
+}
+
+/**
  * Quality Flags: one row per (bar, flag name). The names are stable; analyses
  * pick which to exclude. Open/last/close are only checked against the range when
  * the range itself is sane (high >= low), so an inverted bar carries just
@@ -94,9 +124,9 @@ const FLAG_BARS = `
  */
 const ADJUST_BARS = `
   INSERT INTO adjusted.daily_bar
-    (symbol, trade_date, series, factor, prev_close, open, high, low, last, close,
+    (security_id, symbol, trade_date, series, factor, prev_close, open, high, low, last, close,
      avg_price, traded_qty, turnover_lacs, trades, delivery_qty, delivery_pct)
-  SELECT b.symbol, b.trade_date, b.series, f.num / f.den,
+  SELECT b.security_id, b.symbol, b.trade_date, b.series, f.num / f.den,
          b.prev_close * f.den / f.num,
          b.open * f.den / f.num,
          b.high * f.den / f.num,
@@ -115,7 +145,7 @@ const ADJUST_BARS = `
     FROM (
       SELECT cumulative_num, cumulative_den
       FROM adjusted.adjustment_factor a
-      WHERE a.symbol = b.symbol AND a.ex_date > b.trade_date
+      WHERE a.security_id = b.security_id AND a.ex_date > b.trade_date
       ORDER BY a.ex_date
       LIMIT 1
     ) next_ex_date
@@ -125,11 +155,16 @@ async function buildAdjusted(client: pg.PoolClient, plan: AdjustmentPlan): Promi
   await client.query("TRUNCATE adjusted.daily_bar, adjusted.adjustment_factor");
   await client.query(
     `INSERT INTO adjusted.adjustment_factor
-       (symbol, ex_date, factor_num, factor_den, cumulative_num, cumulative_den, jump_num, jump_den)
-     SELECT * FROM unnest($1::text[], $2::date[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[],
-                          $7::numeric[], $8::numeric[])`,
+       (security_id, symbol, ex_date, factor_num, factor_den, cumulative_num, cumulative_den, jump_num, jump_den)
+     SELECT f.security_id,
+            (SELECT s.symbol FROM core.security_symbol s
+             WHERE s.security_id = f.security_id AND s.from_date <= f.ex_date ORDER BY s.from_date DESC LIMIT 1),
+            f.ex_date, f.factor_num, f.factor_den, f.cumulative_num, f.cumulative_den, f.jump_num, f.jump_den
+     FROM unnest($1::text[], $2::date[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[],
+                 $7::numeric[], $8::numeric[])
+       AS f(security_id, ex_date, factor_num, factor_den, cumulative_num, cumulative_den, jump_num, jump_den)`,
     [
-      plan.factors.map((f) => f.symbol),
+      plan.factors.map((f) => f.securityId),
       plan.factors.map((f) => f.exDate),
       plan.factors.map((f) => f.factor.num.toString()),
       plan.factors.map((f) => f.factor.den.toString()),
@@ -161,15 +196,15 @@ async function buildReviewLeads(client: pg.PoolClient, jumpThreshold: number): P
  */
 const SUSPECTED_BREAKS = `
   INSERT INTO adjusted.suspected_break
-    (symbol, trade_date, prev_trade_date, prev_close, open, close, open_change, close_change)
-  SELECT symbol, trade_date, prev_trade_date, prev_close, open, close,
+    (security_id, symbol, trade_date, prev_trade_date, prev_close, open, close, open_change, close_change)
+  SELECT security_id, symbol, trade_date, prev_trade_date, prev_close, open, close,
          open / prev_close - 1, close / prev_close - 1
   FROM (
-    SELECT symbol, trade_date, open, close,
+    SELECT security_id, symbol, trade_date, open, close,
            lag(trade_date) OVER w AS prev_trade_date,
            lag(close) OVER w AS prev_close
     FROM adjusted.daily_bar
-    WINDOW w AS (PARTITION BY symbol ORDER BY trade_date)
+    WINDOW w AS (PARTITION BY security_id ORDER BY trade_date)
   ) pairs
   WHERE prev_close > 0
     AND (abs(open / prev_close - 1) > $1 OR abs(close / prev_close - 1) > $1)`;
@@ -184,21 +219,21 @@ const SUSPECTED_BREAKS = `
  */
 const ACTIONS_WITHOUT_JUMP = `
   INSERT INTO adjusted.action_without_jump
-    (symbol, ex_date, factor, prev_trade_date, prev_close, trade_date, open, close)
-  SELECT symbol, ex_date, factor, prev_trade_date, prev_close, trade_date, open, close
+    (security_id, symbol, ex_date, factor, prev_trade_date, prev_close, trade_date, open, close)
+  SELECT security_id, symbol, ex_date, factor, prev_trade_date, prev_close, trade_date, open, close
   FROM (
-    SELECT a.symbol, a.ex_date, a.jump_num / a.jump_den AS factor,
+    SELECT a.security_id, a.symbol, a.ex_date, a.jump_num / a.jump_den AS factor,
            p.trade_date AS prev_trade_date, p.close AS prev_close,
            n.trade_date, n.open, n.close
     FROM adjusted.adjustment_factor a
     CROSS JOIN LATERAL (
       SELECT trade_date, close FROM core.daily_bar b
-      WHERE b.symbol = a.symbol AND b.trade_date < a.ex_date
+      WHERE b.security_id = a.security_id AND b.trade_date < a.ex_date
       ORDER BY b.trade_date DESC LIMIT 1
     ) p
     CROSS JOIN LATERAL (
       SELECT trade_date, open, close FROM core.daily_bar b
-      WHERE b.symbol = a.symbol AND b.trade_date >= a.ex_date
+      WHERE b.security_id = a.security_id AND b.trade_date >= a.ex_date
       ORDER BY b.trade_date LIMIT 1
     ) n
     WHERE a.jump_num <> a.jump_den AND p.close > 0
@@ -216,17 +251,17 @@ const FLAG_PREV_CLOSE = `
   INSERT INTO core.daily_bar_flag (symbol, trade_date, flag)
   SELECT symbol, trade_date, 'prev_close_mismatch'
   FROM (
-    SELECT symbol, trade_date, prev_close,
+    SELECT security_id, symbol, trade_date, prev_close,
            lag(close) OVER w AS previous_close,
            lag(trade_date) OVER w AS previous_date
     FROM core.daily_bar
-    WINDOW w AS (PARTITION BY symbol ORDER BY trade_date)
+    WINDOW w AS (PARTITION BY security_id ORDER BY trade_date)
   ) pairs
   WHERE previous_close IS NOT NULL
     AND abs(prev_close - previous_close) > 0.005
     AND NOT EXISTS (
       SELECT 1 FROM adjusted.adjustment_factor a
-      WHERE a.symbol = pairs.symbol AND a.factor_num <> a.factor_den
+      WHERE a.security_id = pairs.security_id AND a.factor_num <> a.factor_den
         AND a.ex_date > pairs.previous_date AND a.ex_date <= pairs.trade_date
     )`;
 
@@ -294,13 +329,24 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
   let plan: AdjustmentPlan = { factors: [], skipped: [], pendingTexts: [], rejected: [], pendingDemergers: [] };
   const result = await withTransaction(db, async (client) => {
     await assertNoConflicts(client, opts.startDate);
-    await client.query("TRUNCATE core.daily_bar, core.daily_bar_flag");
+    await client.query("TRUNCATE core.security, core.security_symbol, core.daily_bar, core.daily_bar_flag");
+    const { rows: barSymbols } = await client.query<{ symbol: string }>(
+      `SELECT DISTINCT symbol FROM (${IN_SCOPE_ROWS}) n WHERE series IN ('EQ', 'BE')`,
+      [opts.startDate],
+    );
+    const symbolChanges = opts.referenceDir ? await loadSymbolChanges(opts.referenceDir, opts.startDate) : [];
+    await writeSecurities(
+      client,
+      barSymbols.map((r) => r.symbol),
+      symbolChanges,
+    );
+    await assertOneBarPerSecurityDay(client, opts.startDate);
     const res = await client.query(
       `INSERT INTO core.daily_bar
-         (symbol, trade_date, series, prev_close, open, high, low, last, close,
+         (security_id, symbol, trade_date, series, prev_close, open, high, low, last, close,
           avg_price, traded_qty, turnover_lacs, trades, delivery_qty, delivery_pct)
        SELECT DISTINCT ON (symbol, trade_date, series)
-              symbol, trade_date, series,
+              security_id, symbol, trade_date, series,
               prev_close::numeric,
               open_price::numeric,
               high_price::numeric,
@@ -313,21 +359,22 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
               no_of_trades::bigint,
               deliv_qty::bigint,
               deliv_per::numeric
-       FROM (${IN_SCOPE_ROWS}) n
-       WHERE series IN ('EQ', 'BE')
+       FROM ${SCOPED_BARS}
        ORDER BY symbol, trade_date, series, source_file, line_number`,
       [opts.startDate],
     );
+    await dropEmptySecurities(client);
+    const securities = await loadSecurities(client);
     await client.query(FLAG_BARS);
     // Rights issues are priced from the Daily Bars just built, so the plan waits for them.
     if (opts.referenceDir) {
-      plan = await planAdjustments(opts.referenceDir, opts.startDate, decisions, barsAroundFrom(client));
+      plan = await planAdjustments(opts.referenceDir, opts.startDate, decisions, securities, barsAroundFrom(client));
     }
-    await assertAddedActionsApply(client, decisions.filter((d) => d.kind === "add_action"));
+    await assertAddedActionsApply(client, decisions.filter((d) => d.kind === "add_action"), securities);
     await buildAdjusted(client, plan);
     await flagPrevClose(client);
     await buildReviewLeads(client, opts.jumpThreshold ?? JUMP_THRESHOLD);
-    await dismissBreaks(client, decisions.filter((d) => d.kind === "dismiss_break"));
+    await dismissBreaks(client, decisions.filter((d) => d.kind === "dismiss_break"), securities);
     return {
       bars: res.rowCount ?? 0,
       skippedActions: plan.skipped,

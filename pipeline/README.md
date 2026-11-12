@@ -21,7 +21,7 @@ Run from `pipeline/`:
 | -------------- | -------------------------------------------------------------------------------------------------- |
 | `yarn migrate` | Applies `migrations/NNNN_*.sql` in order; already-applied files are skipped.                       |
 | `yarn load`    | Raw Files dated on/after the start date (2024-09-01) → `staged.bhavcopy_row`. Safe to re-run.      |
-| `yarn build`   | `staged.bhavcopy_row` → `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
+| `yarn build`   | `staged.bhavcopy_row` → `core.security` and its symbol history, then `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
 | `yarn review`  | Lists every open review item from the last `build` (see "Review queue"). Read-only.                |
 | `yarn test`    | vitest. Needs a local Postgres; each test file creates and drops its own database.                 |
 | `yarn typecheck` |                                                                                                  |
@@ -53,6 +53,46 @@ missing values. `load` reads that layout and rejects any other header.
   in `core.daily_bar` changes. Fix it by removing or correcting the bad file's
   source, never by editing a Raw File.
 - Both quoting styles (`" SERIES"` and unquoted ` SERIES`) load the same.
+
+## Securities and renames
+
+Every symbol with an EQ/BE Daily Bar belongs to a **Security**, whose `security_id` (`sec_` and a hash
+of the first symbol it had, so a rebuild gives the same ID) is not the symbol. `core.security_symbol`
+holds each Security's dated symbol history: a symbol is held from `from_date` (inclusive,
+`-infinity` for the first) to `to_date` (exclusive, `infinity` for the current one). Series is never
+part of identity, so a move between EQ and BE stays the same Security. Daily Bars, the Adjusted
+layer, Suspected Breaks and the `prev_close_mismatch` flag are all keyed by Security, with `symbol`
+kept as the symbol the Security traded under on that date. Items for the review queue and Review
+Decisions still name `SYMBOL`, whichever symbol the Security held on the date given.
+
+`reference/symbol-changes/*.csv` holds NSE's `symbolchange.csv` verbatim (columns
+`NAME OF THE COMPANY,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE`). The newest file by name is used; save one
+by hand until `fetch` exists (#0011). The loader accepts NSE's quirks: rows are unsorted, values have
+leading spaces, dates are dd-MON-yyyy, and the last line is blank-looking. Without a snapshot no
+renames are known and every symbol is its own Security.
+
+- A change effective on or after the start date makes the Security holding the old symbol that day
+  take the new one. Two changes on one day (A→B, B→C) are followed to the end, in whatever order NSE
+  lists them. A change from before the window is ignored: it can join no bar in the window, and NSE
+  has since reused some of those symbols for other companies.
+- A Corporate Action is attached to the Security that held its listed symbol, so one listed under the
+  old symbol with a later ex-date, or the new symbol with an earlier one, still applies. An action
+  NSE lists under both symbols counts once.
+- A Corporate Action for a symbol with no EQ/BE Daily Bars is ignored: it is not applied, skipped,
+  pending interpretation or in the review queue.
+- If a Security has bars under two symbols on one Trading Day (wrong change dates), `build` fails and
+  names the day, the Security and the symbols. A symbol NSE reuses for another company *inside* the
+  window, after renaming it away, is only caught this way when the two overlap on a day; otherwise
+  the new company's bars join the old Security. Check such cases by hand.
+- A Security's ID is derived from its first symbol, so it can change if a newer snapshot reveals an
+  earlier rename inside the window.
+
+```sql
+SELECT * FROM core.security_symbol ORDER BY security_id, from_date;
+-- one continuous series per Security, across renames:
+SELECT trade_date, symbol, close FROM adjusted.daily_bar
+WHERE security_id = (SELECT security_id FROM core.security_symbol WHERE symbol = 'ABREL') ORDER BY trade_date;
+```
 
 ## Quality Flags
 
@@ -87,6 +127,7 @@ Files (ADR 0001).
 
 Inputs live under `reference/` (git-tracked, never edited by the pipeline):
 
+- `symbol-changes/*.csv`: NSE's symbol changes (see "Securities and renames").
 - `corporate-actions/*.json`: verbatim NSE corporate-actions API responses (a JSON
   array with `symbol`, `subject`, `exDate`). The newest file by name is used, e.g.
   `2025-09-01.json`; save one by hand until `fetch` exists (#0011). Only ex-dates

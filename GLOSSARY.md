@@ -27,7 +27,7 @@ _Avoid_: raw row, import row
 ## Instruments
 
 **Security**:
-One listed company's equity, followed across its whole history. It is identified by its symbol; series is not part of its identity.
+One listed company's equity, followed across its whole history. It has a stable ID that is not its symbol, and a dated history of the symbols it has traded under, so a rename keeps it the same Security. Series is not part of its identity.
 _Avoid_: stock (when precision matters), ticker, scrip
 
 **Series**:

@@ -3,6 +3,7 @@ import path from "node:path";
 import { parse } from "csv-parse/sync";
 import type pg from "pg";
 import { decimal, fraction, type Fraction } from "./adjustments";
+import type { Securities } from "./securities";
 
 /** Where a person's rulings live, relative to the review directory. Git-tracked, never written by the pipeline. */
 export const DECISIONS_FILE = "decisions.csv";
@@ -145,10 +146,10 @@ function target(r: Record<string, string>, where: string, itemKind: "break" | "n
  * touched: a dismissal says the jump is a genuine price move. A dismissal with no
  * break to match is stale or mistyped, so it is an error.
  */
-export async function dismissBreaks(client: pg.PoolClient, dismissals: DismissBreak[]): Promise<void> {
+export async function dismissBreaks(client: pg.PoolClient, dismissals: DismissBreak[], securities: Securities): Promise<void> {
   for (const d of dismissals) {
-    const { rowCount } = await client.query("DELETE FROM adjusted.suspected_break WHERE symbol = $1 AND trade_date = $2", [
-      d.symbol,
+    const { rowCount } = await client.query("DELETE FROM adjusted.suspected_break WHERE security_id = $1 AND trade_date = $2", [
+      securities.at(d.symbol, d.date),
       d.date,
     ]);
     if (rowCount === 0) throw new Error(`${d.where}: no Suspected Break for ${d.symbol} on ${d.date} to dismiss`);
@@ -159,13 +160,17 @@ export async function dismissBreaks(client: pg.PoolClient, dismissals: DismissBr
  * An added action only changes anything if the Security has a bar before its
  * ex-date and one on or after it. Anything else is a typo (symbol or date), not a ruling.
  */
-export async function assertAddedActionsApply(client: pg.PoolClient, additions: AddAction[]): Promise<void> {
+export async function assertAddedActionsApply(
+  client: pg.PoolClient,
+  additions: AddAction[],
+  securities: Securities,
+): Promise<void> {
   for (const a of additions) {
     const { rows } = await client.query(
       `SELECT count(*) FILTER (WHERE trade_date < $2::date) AS before,
               count(*) FILTER (WHERE trade_date >= $2::date) AS after
-       FROM core.daily_bar WHERE symbol = $1`,
-      [a.symbol, a.date],
+       FROM core.daily_bar WHERE security_id = $1`,
+      [securities.at(a.symbol, a.date), a.date],
     );
     if (Number(rows[0].before) === 0 || Number(rows[0].after) === 0) {
       throw new Error(`${a.where}: ${a.symbol} has no Daily Bars on both sides of ${a.date}, so an action going ex then has no effect`);

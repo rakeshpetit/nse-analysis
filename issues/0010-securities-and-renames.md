@@ -1,5 +1,5 @@
 ---
-status: ready
+status: done
 type: AFK
 blocked_by: ["0004"]
 ---
@@ -18,10 +18,10 @@ Give each Security a stable identity that survives symbol changes.
 
 ## Acceptance criteria
 
-- [ ] Fixture test: a real rename in the window gives one Security with a continuous Adjusted series
-- [ ] A Corporate Action listed under the old symbol, with an ex-date after the rename, still attaches to the Security
-- [ ] A fixture of a symbol moving between EQ and BE stays a single Security
-- [ ] No false Suspected Break appears at the rename date
+- [x] Fixture test: a real rename in the window gives one Security with a continuous Adjusted series
+- [x] A Corporate Action listed under the old symbol, with an ex-date after the rename, still attaches to the Security
+- [x] A fixture of a symbol moving between EQ and BE stays a single Security
+- [x] No false Suspected Break appears at the rename date
 
 ## Blocked by
 

@@ -6,6 +6,7 @@ import { parse } from "csv-parse/sync";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { build } from "../src/build";
 import { START_DATE } from "../src/config";
+import { load } from "../src/load";
 import { createTestDb, type TestDb } from "./testDb";
 
 const startDate = START_DATE;
@@ -30,10 +31,25 @@ interface Listed {
   exDate: string;
 }
 
-/** A throwaway reference directory with one Reference Snapshot and (optionally) interpretations. */
+const BAR_HEADER =
+  'SYMBOL," SERIES"," DATE1"," PREV_CLOSE"," OPEN_PRICE"," HIGH_PRICE"," LOW_PRICE"," LAST_PRICE"," CLOSE_PRICE"," AVG_PRICE"," TTL_TRD_QNTY"," TURNOVER_LACS"," NO_OF_TRADES"," DELIV_QTY"," DELIV_PER"\n';
+
+/** Stages one Daily Bar for each symbol: a Corporate Action only counts for a symbol that trades. */
+async function stageBars(symbols: string[]): Promise<void> {
+  const filesDir = await fs.mkdtemp(path.join(os.tmpdir(), "nse-bars-"));
+  dirs.push(filesDir);
+  const bar = (s: string) =>
+    `${s}," EQ"," 28-Oct-2024"," 100.00"," 100.00"," 101.00"," 99.00"," 100.00"," 100.00"," 100.00"," 1000"," 1.00"," 100"," -"," -"\n`;
+  await fs.writeFile(path.join(filesDir, "28OCT2024.csv"), BAR_HEADER + [...new Set(symbols)].map(bar).join(""));
+  await t.db.query("TRUNCATE staged.bhavcopy_row");
+  await load(t.db, { filesDir, startDate });
+}
+
+/** A throwaway reference directory with one Reference Snapshot and (optionally) interpretations, and bars for its symbols. */
 async function reference(actions: Listed[], interpretations?: string): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nse-reference-"));
   dirs.push(dir);
+  await stageBars(actions.map((a) => a.symbol));
   await fs.mkdir(path.join(dir, "corporate-actions"));
   await fs.writeFile(path.join(dir, "corporate-actions", "2025-09-01.json"), JSON.stringify(actions));
   if (interpretations !== undefined) {

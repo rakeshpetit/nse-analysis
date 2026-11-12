@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { barsAroundFrom, planAdjustments, type AdjustmentPlan } from "./adjustments";
 import { loadDecisions } from "./decisions";
 import type { Db } from "./db";
+import { loadSecurities } from "./securities";
 
 export type ReviewKind =
   | "suspected_break"
@@ -53,19 +54,19 @@ const percent = (change: string) => {
 };
 
 /** The bars before `date`, on it (or the first one after), and after it. */
-async function pricesAround(db: Db, symbol: string, date: string): Promise<PriceRow[]> {
+async function pricesAround(db: Db, securityId: string, date: string): Promise<PriceRow[]> {
   const { rows } = await db.query<PriceRow>(
     `SELECT trade_date::text AS "tradeDate", open::text, close::text, adjusted_close::text AS "adjustedClose"
      FROM (
        (SELECT b.trade_date, b.open, b.close, a.close AS adjusted_close
-        FROM core.daily_bar b JOIN adjusted.daily_bar a USING (symbol, trade_date)
-        WHERE symbol = $1 AND trade_date < $2::date ORDER BY trade_date DESC LIMIT $3)
+        FROM core.daily_bar b JOIN adjusted.daily_bar a USING (security_id, trade_date)
+        WHERE security_id = $1 AND trade_date < $2::date ORDER BY trade_date DESC LIMIT $3)
        UNION ALL
        (SELECT b.trade_date, b.open, b.close, a.close
-        FROM core.daily_bar b JOIN adjusted.daily_bar a USING (symbol, trade_date)
-        WHERE symbol = $1 AND trade_date >= $2::date ORDER BY trade_date LIMIT $4)
+        FROM core.daily_bar b JOIN adjusted.daily_bar a USING (security_id, trade_date)
+        WHERE security_id = $1 AND trade_date >= $2::date ORDER BY trade_date LIMIT $4)
      ) bars ORDER BY trade_date`,
-    [symbol, date, BARS_BEFORE, BARS_AFTER + 1],
+    [securityId, date, BARS_BEFORE, BARS_AFTER + 1],
   );
   return rows;
 }
@@ -114,7 +115,7 @@ async function demergerItems(db: Db, plan: AdjustmentPlan): Promise<ReviewItem[]
       ],
       symbol: d.symbol,
       date: d.exDate,
-      prices: await pricesAround(db, d.symbol, d.exDate),
+      prices: await pricesAround(db, d.securityId, d.exDate),
     });
   }
   return items;
@@ -128,6 +129,7 @@ async function demergerItems(db: Db, plan: AdjustmentPlan): Promise<ReviewItem[]
  */
 export async function review(db: Db, opts: ReviewOptions): Promise<ReviewItem[]> {
   const breaks = await db.query<{
+    security_id: string;
     symbol: string;
     trade_date: string;
     prev_trade_date: string;
@@ -137,11 +139,12 @@ export async function review(db: Db, opts: ReviewOptions): Promise<ReviewItem[]>
     open_change: string;
     close_change: string;
   }>(
-    `SELECT symbol, trade_date::text, prev_trade_date::text, prev_close::text, open::text, close::text,
+    `SELECT security_id, symbol, trade_date::text, prev_trade_date::text, prev_close::text, open::text, close::text,
             open_change::text, close_change::text
      FROM adjusted.suspected_break ORDER BY symbol, trade_date`,
   );
   const noJump = await db.query<{
+    security_id: string;
     symbol: string;
     ex_date: string;
     factor: string;
@@ -149,7 +152,7 @@ export async function review(db: Db, opts: ReviewOptions): Promise<ReviewItem[]>
     open: string;
     close: string;
   }>(
-    `SELECT symbol, ex_date::text, factor::text, prev_close::text, open::text, close::text
+    `SELECT security_id, symbol, ex_date::text, factor::text, prev_close::text, open::text, close::text
      FROM adjusted.action_without_jump ORDER BY symbol, ex_date`,
   );
 
@@ -166,7 +169,7 @@ export async function review(db: Db, opts: ReviewOptions): Promise<ReviewItem[]>
       ],
       symbol: b.symbol,
       date: b.trade_date,
-      prices: await pricesAround(db, b.symbol, b.trade_date),
+      prices: await pricesAround(db, b.security_id, b.trade_date),
     });
   }
   for (const a of noJump.rows) {
@@ -180,10 +183,16 @@ export async function review(db: Db, opts: ReviewOptions): Promise<ReviewItem[]>
       ],
       symbol: a.symbol,
       date: a.ex_date,
-      prices: await pricesAround(db, a.symbol, a.ex_date),
+      prices: await pricesAround(db, a.security_id, a.ex_date),
     });
   }
-  const plan = await planAdjustments(opts.referenceDir, opts.startDate, await loadDecisions(opts.reviewDir), barsAroundFrom(db));
+  const plan = await planAdjustments(
+    opts.referenceDir,
+    opts.startDate,
+    await loadDecisions(opts.reviewDir),
+    await loadSecurities(db),
+    barsAroundFrom(db),
+  );
   items.push(...(await demergerItems(db, plan)), ...interpretationItems(plan));
   return items;
 }
