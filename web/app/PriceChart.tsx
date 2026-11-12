@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { PriceBar } from "./data.server";
-import { formatPrice } from "./format";
+import { formatPrice, formatQuantity } from "./format";
 import styles from "./PriceChart.module.css";
 
 const TOOLTIP_WIDTH_PX = 168;
 const TOOLTIP_GAP_PX = 16;
+const VOLUME_PANE = 1;
+const VOLUME_PANE_HEIGHT_PX = 120;
 
-/** Adjusted close as a line; hovering shows that day's Adjusted open, high, low and close. */
+/**
+ * Adjusted close as a line with Adjusted daily volume as a histogram in a pane beneath it, on one
+ * time axis and crosshair. Hovering shows that day's Adjusted open, high, low, close and volume.
+ */
 export function PriceChart({ bars }: { bars: PriceBar[] }) {
   const container = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState<{ bar: PriceBar; left: number } | null>(null);
@@ -18,13 +23,14 @@ export function PriceChart({ bars }: { bars: PriceBar[] }) {
     let cancelled = false;
 
     // Loaded here so the server render never touches the DOM-only charting library.
-    import("lightweight-charts").then(({ createChart, LineSeries, ColorType }) => {
+    import("lightweight-charts").then(({ createChart, LineSeries, HistogramSeries, ColorType }) => {
       if (cancelled) return;
       const css = getComputedStyle(document.documentElement);
       const colors = () => ({
         muted: css.getPropertyValue("--muted").trim(),
         line: css.getPropertyValue("--line").trim(),
         accent: css.getPropertyValue("--accent").trim(),
+        volume: css.getPropertyValue("--volume").trim(),
       });
       const layoutOptions = () => {
         const c = colors();
@@ -43,6 +49,13 @@ export function PriceChart({ bars }: { bars: PriceBar[] }) {
         priceFormat: { type: "price", precision: 2, minMove: 0.01 },
       });
       series.setData(bars.map((b) => ({ time: b.date, value: b.close })));
+      const volume = chart.addSeries(
+        HistogramSeries,
+        { color: colors().volume, priceFormat: { type: "volume" }, priceLineVisible: false },
+        VOLUME_PANE,
+      );
+      volume.setData(bars.map((b) => ({ time: b.date, value: b.volume })));
+      chart.panes()[VOLUME_PANE]?.setHeight(VOLUME_PANE_HEIGHT_PX);
       chart.timeScale().fitContent();
 
       const byDate = new Map(bars.map((b) => [b.date, b]));
@@ -57,6 +70,7 @@ export function PriceChart({ bars }: { bars: PriceBar[] }) {
       const restyle = () => {
         chart.applyOptions(layoutOptions());
         series.applyOptions({ color: colors().accent });
+        volume.applyOptions({ color: colors().volume });
       };
       scheme.addEventListener("change", restyle);
       dispose = () => {
@@ -92,6 +106,9 @@ export function PriceChart({ bars }: { bars: PriceBar[] }) {
           </dd>
           <dd>
             <span>Close</span> {formatPrice(hovered.bar.close)}
+          </dd>
+          <dd>
+            <span>Volume</span> {formatQuantity(hovered.bar.volume)}
           </dd>
         </dl>
       )}

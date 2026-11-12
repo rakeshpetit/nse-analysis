@@ -8,6 +8,7 @@
   --up: #0a7d33;
   --down: #c62828;
   --accent: #1a56db;
+  --volume: #a9bdea;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,6 +21,7 @@
     --up: #4cc77a;
     --down: #ff6b6b;
     --accent: #6ea8ff;
+    --volume: #3a5588;
   }
 }
 

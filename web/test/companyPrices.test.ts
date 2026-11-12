@@ -113,11 +113,20 @@ describe("companyPrices: range windows", () => {
 describe("companyPrices: bar contents", () => {
   it("returns the Adjusted open, high, low and close, not the unadjusted ones", async () => {
     await seedSymbolHistory(t.writer, "A", [{ symbol: "A" }]);
-    await seedBar(t.writer, { id: "A", date: "2026-11-12", close: 100, adjClose: 25 });
+    await seedBar(t.writer, { id: "A", date: "2026-11-12", close: 100, adjClose: 25, qty: 1000, adjQty: 4000 });
     await t.writer.query("UPDATE adjusted.daily_bar SET open = 24, high = 26, low = 23");
 
     expect((await companyPrices(db, "A", "3M"))?.bars).toEqual([
-      { date: "2026-11-12", open: 24, high: 26, low: 23, close: 25 },
+      { date: "2026-11-12", open: 24, high: 26, low: 23, close: 25, volume: 4000 },
     ]);
+  });
+
+  it("gives each day's Adjusted traded quantity, so volume has no step at a split's ex-date", async () => {
+    await seedSymbolHistory(t.writer, "A", [{ symbol: "A" }]);
+    // 1:4 split with ex-date 2026-11-12: the unadjusted quantity quadruples, the Adjusted one does not.
+    await seedBar(t.writer, { id: "A", date: "2026-11-11", close: 100, adjClose: 25, qty: 1000, adjQty: 4000 });
+    await seedBar(t.writer, { id: "A", date: "2026-11-12", close: 25, qty: 4000, adjQty: 4000 });
+
+    expect((await companyPrices(db, "A", "3M"))?.bars.map((b) => b.volume)).toEqual([4000, 4000]);
   });
 });

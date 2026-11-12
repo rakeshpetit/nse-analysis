@@ -24,3 +24,10 @@ export function formatChange(pct: number | null): string {
   const sign = changeDirection(pct) === "up" ? "+" : "";
   return `${sign}${pct.toFixed(2)}%`;
 }
+
+const quantity = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+
+/** A share quantity with Indian digit grouping, e.g. `12,34,567`. */
+export function formatQuantity(value: number): string {
+  return quantity.format(value);
+}

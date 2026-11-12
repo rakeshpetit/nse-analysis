@@ -1,5 +1,5 @@
 ---
-status: ready
+status: done
 type: AFK
 blocked_by: ["0020"]
 ---
@@ -12,9 +12,9 @@ Add a daily volume histogram under the price line on the company page. It shows 
 
 ## Acceptance criteria
 
-- [ ] Each Trading Day in the window has a volume bar under its price point
-- [ ] Hovering shows the volume alongside the prices
-- [ ] Volume across a split or bonus ex-date shows no step change caused by the action itself
+- [x] Each Trading Day in the window has a volume bar under its price point
+- [x] Hovering shows the volume alongside the prices
+- [x] Volume across a split or bonus ex-date shows no step change caused by the action itself
 
 ## Blocked by
 

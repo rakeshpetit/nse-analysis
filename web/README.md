@@ -35,7 +35,7 @@ Run from `web/`:
 - `app/data.server.ts`: the data-access module. Every query lives here, and its connections are
   opened with `default_transaction_read_only=on`, so a write fails. The pipeline stays the only writer.
 - `app/routes/`: one file per page. `/` is the Top 30 Securities by Market Cap on the latest Trading Day.
-- `app/routes/company.tsx`: `/companies/:symbol`, one Security's Adjusted close as a `lightweight-charts` line (`app/PriceChart.tsx`), with 3M/6M/1Y ranges (`?range=`, default 1Y) counted from the latest Trading Day in the database. The symbol is the Security's current one; an unknown or retired symbol is a 404.
+- `app/routes/company.tsx`: `/companies/:symbol`, one Security's Adjusted close as a `lightweight-charts` line (`app/PriceChart.tsx`) with Adjusted daily volume as a histogram pane beneath it, with 3M/6M/1Y ranges (`?range=`, default 1Y) counted from the latest Trading Day in the database. The symbol is the Security's current one; an unknown or retired symbol is a 404.
 - `app/format.ts`: Indian digit grouping (`18,07,135 Cr`) and signed percentages.
 - `test/`: data-access tests against a real, migrated Postgres.
 

@@ -58,6 +58,9 @@ export interface SeedBar {
   /** Adjusted close and previous close, if different from the unadjusted ones. */
   adjClose?: number;
   adjPrevClose?: number;
+  /** Unadjusted and Adjusted traded quantity; default 1. */
+  qty?: number;
+  adjQty?: number;
 }
 
 /** Inserts a Daily Bar into core.daily_bar and adjusted.daily_bar (and the Security, if new). */
@@ -68,13 +71,13 @@ export async function seedBar(db: pg.Pool, bar: SeedBar): Promise<void> {
   await db.query("INSERT INTO core.security (security_id) VALUES ($1) ON CONFLICT DO NOTHING", [bar.id]);
   await db.query(
     `INSERT INTO core.daily_bar (security_id, symbol, trade_date, series, prev_close, open, high, low, last, close, traded_qty, turnover_lacs, trades)
-     VALUES ($1, $2, $3, 'EQ', $4, $4, $4, $4, $4, $4, 1, 1, 1)`,
-    [bar.id, symbol, bar.date, bar.close],
+     VALUES ($1, $2, $3, 'EQ', $4, $4, $4, $4, $4, $4, $5, 1, 1)`,
+    [bar.id, symbol, bar.date, bar.close, bar.qty ?? 1],
   );
   await db.query(
     `INSERT INTO adjusted.daily_bar (security_id, symbol, trade_date, series, factor, prev_close, open, high, low, last, close, traded_qty, turnover_lacs, trades)
-     VALUES ($1, $2, $3, 'EQ', 1, $4, $5, $5, $5, $5, $5, 1, 1, 1)`,
-    [bar.id, symbol, bar.date, adjPrev, adjClose],
+     VALUES ($1, $2, $3, 'EQ', 1, $4, $5, $5, $5, $5, $5, $6, 1, 1)`,
+    [bar.id, symbol, bar.date, adjPrev, adjClose, bar.adjQty ?? bar.qty ?? 1],
   );
 }
 
