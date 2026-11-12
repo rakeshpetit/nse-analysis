@@ -1,7 +1,8 @@
 import path from "node:path";
 import { PENDING_FILE } from "./adjustments";
 import { build } from "./build";
-import { FILES_DIR, MIGRATIONS_DIR, REFERENCE_DIR, START_DATE } from "./config";
+import { DECISIONS_FILE } from "./decisions";
+import { FILES_DIR, MIGRATIONS_DIR, REFERENCE_DIR, REVIEW_DIR, START_DATE } from "./config";
 import type { Db } from "./db";
 import { connect } from "./db";
 import { load } from "./load";
@@ -18,11 +19,13 @@ const commands = {
     console.log(`Loaded ${rows} Staged Rows from ${files} Raw Files in ${FILES_DIR}`);
   },
   async build(db: Db) {
-    const { bars, skippedActions, pendingTexts, rejectedInterpretations } = await build(db, {
+    const { bars, skippedActions, pendingTexts, rejectedInterpretations, decisions } = await build(db, {
       startDate: START_DATE,
       referenceDir: REFERENCE_DIR,
+      reviewDir: REVIEW_DIR,
     });
     console.log(`Built ${bars} Daily Bars and the Adjusted layer`);
+    if (decisions > 0) console.log(`Applied ${decisions} Review Decision(s) from ${path.join(REVIEW_DIR, DECISIONS_FILE)}`);
     if (pendingTexts.length > 0) {
       console.warn(
         `${pendingTexts.length} texts need interpreting: run /interpret-corporate-actions in Claude Code ` +
@@ -41,7 +44,7 @@ const commands = {
     }
   },
   async review(db: Db) {
-    const items = await review(db, { startDate: START_DATE, referenceDir: REFERENCE_DIR });
+    const items = await review(db, { startDate: START_DATE, referenceDir: REFERENCE_DIR, reviewDir: REVIEW_DIR });
     if (items.length === 0) {
       console.log("Nothing to review");
       return;

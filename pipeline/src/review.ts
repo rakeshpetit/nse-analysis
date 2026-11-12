@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { planAdjustments, type AdjustmentPlan } from "./adjustments";
+import { loadDecisions } from "./decisions";
 import type { Db } from "./db";
 
 export type ReviewKind =
@@ -35,6 +36,8 @@ export interface ReviewItem {
 export interface ReviewOptions {
   startDate: string;
   referenceDir: string;
+  /** Directory holding `decisions.csv`; decided items are not listed. */
+  reviewDir?: string;
 }
 
 const BARS_BEFORE = 2;
@@ -150,6 +153,6 @@ export async function review(db: Db, opts: ReviewOptions): Promise<ReviewItem[]>
       prices: await pricesAround(db, a.symbol, a.ex_date),
     });
   }
-  items.push(...interpretationItems(await planAdjustments(opts.referenceDir, opts.startDate)));
+  items.push(...interpretationItems(await planAdjustments(opts.referenceDir, opts.startDate, await loadDecisions(opts.reviewDir))));
   return items;
 }

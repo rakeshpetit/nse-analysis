@@ -1,5 +1,5 @@
 ---
-status: ready
+status: done
 type: AFK
 blocked_by: ["0006"]
 ---
@@ -20,11 +20,11 @@ Each row refers to a review item ID from #0006, or names the symbol and date dir
 
 ## Acceptance criteria
 
-- [ ] Adding a missing action removes the corresponding Suspected Break and adjusts the earlier bars
-- [ ] Rejecting an action removes its factor from the Adjusted layer
-- [ ] A dismissed break drops out of the review queue and leaves prices unchanged
-- [ ] A decision that refers to a non-existent item makes `build` fail loudly, never silently
-- [ ] Deleting `review/decisions.csv` and rebuilding restores the undecided state, which shows the database holds no state that isn't in git
+- [x] Adding a missing action removes the corresponding Suspected Break and adjusts the earlier bars
+- [x] Rejecting an action removes its factor from the Adjusted layer
+- [x] A dismissed break drops out of the review queue and leaves prices unchanged
+- [x] A decision that refers to a non-existent item makes `build` fail loudly, never silently
+- [x] Deleting `review/decisions.csv` and rebuilding restores the undecided state, which shows the database holds no state that isn't in git
 
 ## Blocked by
 

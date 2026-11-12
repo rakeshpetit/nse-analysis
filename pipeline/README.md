@@ -28,6 +28,7 @@ Run from `pipeline/`:
 
 `FILES_DIR` overrides the Raw Files location (default: `../files`).
 `REFERENCE_DIR` overrides the reference location (default: `../reference`).
+`REVIEW_DIR` overrides the Review Decisions location (default: `../review`).
 `TEST_ADMIN_URL` overrides the database used to create test databases
 (default `postgres://localhost/postgres`).
 
@@ -135,7 +136,7 @@ SELECT * FROM adjusted.adjustment_factor ORDER BY symbol, ex_date;
 
 `build` also looks for leads to review, in `adjusted.suspected_break` and
 `adjusted.action_without_jump`; `yarn review` prints them with the other open items.
-Nothing here changes prices; Review Decisions (#0007) are how a person rules on an item.
+Nothing here changes prices; Review Decisions (below) are how a person rules on an item.
 
 - **Suspected Break**: after applying every Adjustment Factor, the open or close is more than
   the jump threshold (20% by default, up or down; `JUMP_THRESHOLD` env, `build`'s `jumpThreshold`
@@ -152,6 +153,45 @@ Each item has an ID built only from what it is about, so it survives rebuilds:
 `break:SYMBOL:DATE`, `no-jump:SYMBOL:EX_DATE`, `no-interpretation:<hash>` and
 `rejected-interpretation:<hash>` (first 10 hex of the SHA-1 of the exact description).
 Each shows the unadjusted and adjusted prices two bars before and after the date.
+
+## Review Decisions
+
+`review/decisions.csv` (git-tracked, never written by the pipeline) is the only way a
+person changes the output (ADR 0001). The next `build` applies it, and `yarn review`
+stops listing what was decided. Columns: `decision,item,symbol,date,factor,note`.
+Name what a row is about either by its review item ID in `item`, or by `symbol` and
+`date` (not both). `note` is free text for your future self.
+
+| `decision`       | Needs                                         | Effect                                                                                  |
+| ---------------- | --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `add_action`     | `break:SYMBOL:DATE` or symbol + ex-date, `factor` | Applies an Adjustment Factor NSE's list lacks; bars before the ex-date are divided by it. |
+| `reject_action`  | `no-jump:SYMBOL:EX_DATE` or symbol + ex-date  | Ignores every Corporate Action NSE lists for that Security on that ex-date.             |
+| `dismiss_break`  | `break:SYMBOL:DATE` or symbol + date          | Drops a Suspected Break that is a genuine price move. Prices are unchanged.             |
+
+`factor` is a positive number or a ratio, not 1: `2` (bonus 1:1), `10` (10→1 split),
+`1/10` (consolidation). It multiplies with any factor NSE lists on the same ex-date.
+
+```csv
+decision,item,symbol,date,factor,note
+add_action,break:RELIANCE:2024-10-28,,,2,Bonus 1:1 missing from the NSE list
+reject_action,,SUNEX,2024-11-03,,NSE listed it in error
+dismiss_break,break:UPCO:2024-10-11,,,,F&O stock with no price band
+```
+
+A row that does not apply makes `build` fail, naming the row, and nothing changes:
+an unknown decision, bad date or factor, an item of the wrong kind, a symbol with no bars
+on both sides of an added ex-date, an action to reject that NSE does not list, a break
+to dismiss that is not there, or the same thing decided twice. A `reject_action` or
+`dismiss_break` going stale (NSE drops the action, an interpretation now explains the break)
+fails the same way, so delete the row. An `add_action` is only checked for bars on both
+sides of its ex-date, not against the break it was named after, and it multiplies with any
+factor NSE lists on that ex-date: if NSE later lists the action you added, delete your row.
+Decisions are applied in this order: rejected actions leave the list, added actions join
+it, then breaks are found and dismissals applied, so a dismissal refers to a break as it
+stands after the other two. `yarn review` re-reads `decisions.csv` only for rejected
+actions; breaks come from the last `build`, so re-run it after editing decisions.
+Deleting `decisions.csv` and rebuilding restores the undecided state; the database keeps
+nothing that is not in git.
 
 ## Queries
 

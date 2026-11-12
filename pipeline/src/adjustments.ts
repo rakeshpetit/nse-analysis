@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
+import type { Decision } from "./decisions";
 
 /** A Corporate Action as listed in a Reference Snapshot. */
 interface CorporateAction {
@@ -68,7 +69,7 @@ const ONE: Fraction = { num: 1n, den: 1n };
 
 const gcd = (a: bigint, b: bigint): bigint => (b === 0n ? a : gcd(b, a % b));
 
-function fraction(num: bigint, den: bigint): Fraction {
+export function fraction(num: bigint, den: bigint): Fraction {
   const g = gcd(num, den);
   return { num: num / g, den: den / g };
 }
@@ -79,7 +80,7 @@ const multiply = (a: Fraction, b: Fraction): Fraction => fraction(a.num * b.num,
 class ShapeError extends Error {}
 
 /** A positive decimal such as "10" or "2.5" as an exact fraction. */
-function decimal(text: string, what: string): Fraction {
+export function decimal(text: string, what: string): Fraction {
   const m = /^(\d+)(?:\.(\d+))?$/.exec(text.trim());
   const value = m ? fraction(BigInt(m[1]! + (m[2] ?? "")), 10n ** BigInt((m[2] ?? "").length)) : null;
   if (!value || value.num === 0n) throw new ShapeError(`${what} must be a positive number, got "${text}"`);
@@ -217,16 +218,38 @@ function factorOf(i: Interpretation): Fraction | { skip: string } {
 }
 
 /**
+ * The Corporate Actions left once the ones a person rejected are ignored. A
+ * rejection that matches nothing is an error (the snapshot may have changed under it).
+ */
+function withoutRejected(actions: CorporateAction[], decisions: Decision[]): CorporateAction[] {
+  let kept = actions;
+  for (const d of decisions) {
+    if (d.kind !== "reject_action") continue;
+    const matches = (a: CorporateAction) => a.symbol === d.symbol && a.exDate === d.date;
+    if (!actions.some(matches)) {
+      throw new Error(`${d.where}: no Corporate Action for ${d.symbol} going ex on ${d.date} to reject`);
+    }
+    kept = kept.filter((a) => !matches(a));
+  }
+  return kept;
+}
+
+/**
  * Turns the latest Reference Snapshot and the Action Interpretations into the
  * Adjustment Factors to apply. A Corporate Action whose description has no
  * interpretation (or one of an unsupported type) is skipped and reported, never
  * guessed. A "not price-relevant" one needs no factor and is not reported.
  */
-export async function planAdjustments(referenceDir: string, startDate: string): Promise<AdjustmentPlan> {
-  const [actions, interpretations] = await Promise.all([
+export async function planAdjustments(
+  referenceDir: string,
+  startDate: string,
+  decisions: Decision[] = [],
+): Promise<AdjustmentPlan> {
+  const [listed, interpretations] = await Promise.all([
     loadActions(referenceDir, startDate),
     loadInterpretations(referenceDir),
   ]);
+  const actions = withoutRejected(listed, decisions);
 
   // Every row is shape-checked, applied or not; a wrong one is held for review.
   const outcomes = new Map<string, Fraction | { skip: string }>();
@@ -265,6 +288,18 @@ export async function planAdjustments(referenceDir: string, startDate: string): 
       symbol: action.symbol,
       exDate: action.exDate,
       factor: earlier ? multiply(earlier.factor, outcome) : outcome,
+    });
+  }
+
+  // Actions a person added are not in NSE's list, and need no interpretation.
+  for (const d of decisions) {
+    if (d.kind !== "add_action") continue;
+    const key = `${d.symbol}|${d.date}`;
+    const earlier = combined.get(key);
+    combined.set(key, {
+      symbol: d.symbol,
+      exDate: d.date,
+      factor: earlier ? multiply(earlier.factor, d.factor) : d.factor,
     });
   }
 

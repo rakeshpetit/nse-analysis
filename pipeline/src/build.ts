@@ -7,6 +7,7 @@ import {
   type SkippedAction,
 } from "./adjustments";
 import { JUMP_THRESHOLD } from "./config";
+import { assertAddedActionsApply, dismissBreaks, loadDecisions } from "./decisions";
 import { withTransaction, type Db } from "./db";
 
 export interface BuildOptions {
@@ -15,6 +16,8 @@ export interface BuildOptions {
   referenceDir?: string;
   /** Move (as a fraction) beyond which an unexplained price change is a Suspected Break. Defaults to the configured threshold. */
   jumpThreshold?: number;
+  /** Directory holding the git-tracked `decisions.csv` (Review Decisions). Without it nothing is decided. */
+  reviewDir?: string;
 }
 
 export interface BuildResult {
@@ -25,6 +28,8 @@ export interface BuildResult {
   pendingTexts: string[];
   /** Action Interpretations with the wrong shape: not applied, held for the review queue (#0006). */
   rejectedInterpretations: RejectedInterpretation[];
+  /** Review Decisions read from `decisions.csv` and applied. */
+  decisions: number;
 }
 
 /** Trimmed text, with NSE's "no value" markers (blank, "-") as NULL. */
@@ -280,8 +285,9 @@ async function assertNoConflicts(client: pg.PoolClient, startDate: string): Prom
  * make the build fail before anything changes.
  */
 export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
+  const decisions = await loadDecisions(opts.reviewDir);
   const plan: AdjustmentPlan = opts.referenceDir
-    ? await planAdjustments(opts.referenceDir, opts.startDate)
+    ? await planAdjustments(opts.referenceDir, opts.startDate, decisions)
     : { factors: [], skipped: [], pendingTexts: [], rejected: [] };
   const result = await withTransaction(db, async (client) => {
     await assertNoConflicts(client, opts.startDate);
@@ -310,14 +316,17 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
       [opts.startDate],
     );
     await client.query(FLAG_BARS);
+    await assertAddedActionsApply(client, decisions.filter((d) => d.kind === "add_action"));
     await buildAdjusted(client, plan);
     await flagPrevClose(client);
     await buildReviewLeads(client, opts.jumpThreshold ?? JUMP_THRESHOLD);
+    await dismissBreaks(client, decisions.filter((d) => d.kind === "dismiss_break"));
     return {
       bars: res.rowCount ?? 0,
       skippedActions: plan.skipped,
       pendingTexts: plan.pendingTexts,
       rejectedInterpretations: plan.rejected,
+      decisions: decisions.length,
     };
   });
   if (opts.referenceDir) await writePendingFile(opts.referenceDir, plan.pendingTexts);

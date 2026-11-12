@@ -21,6 +21,9 @@ export const FILES_DIR = process.env.FILES_DIR ?? path.join(repoRoot, "files");
 /** Directory holding Reference Snapshots and Action Interpretations. Override with REFERENCE_DIR. */
 export const REFERENCE_DIR = process.env.REFERENCE_DIR ?? path.join(repoRoot, "reference");
 
+/** Directory holding the git-tracked `decisions.csv` (Review Decisions). Override with REVIEW_DIR. */
+export const REVIEW_DIR = process.env.REVIEW_DIR ?? path.join(repoRoot, "review");
+
 export const MIGRATIONS_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../migrations",
