@@ -196,3 +196,53 @@ export async function review(db: Db, opts: ReviewOptions): Promise<ReviewItem[]>
   items.push(...(await demergerItems(db, plan)), ...interpretationItems(plan));
   return items;
 }
+
+/** A Security-day whose Market Cap (Issue Size × our unadjusted close) is not the one NSE printed. */
+export interface MarketCapMismatch {
+  symbol: string;
+  tradeDate: string;
+  issueSize: string;
+  /** Our unadjusted close for the day. */
+  close: string;
+  /** Issue Size × close. */
+  marketCap: string;
+  /** The `Market Cap(Rs.)` in the Market Cap File. */
+  fileMarketCap: string;
+  /** (marketCap - fileMarketCap) / fileMarketCap. */
+  difference: string;
+}
+
+/** The share of the file's Market Cap beyond which our Market Cap counts as different. */
+export const MARKET_CAP_TOLERANCE = 0.005;
+
+/**
+ * Every Security-day where our Market Cap differs from the Market Cap File's by more than the
+ * tolerance (0.5%). Informational: no Review Decision is needed, and none is ever recorded.
+ */
+export async function marketCapMismatches(db: Db): Promise<MarketCapMismatch[]> {
+  const { rows } = await db.query<MarketCapMismatch>(
+    `SELECT b.symbol, b.trade_date::text AS "tradeDate", i.issue_size::text AS "issueSize", b.close::text AS close,
+            (i.issue_size * b.close)::text AS "marketCap", i.file_market_cap::text AS "fileMarketCap",
+            ((i.issue_size * b.close - i.file_market_cap) / i.file_market_cap)::text AS difference
+     FROM core.issue_size i
+     JOIN core.daily_bar b USING (security_id, trade_date)
+     WHERE i.file_market_cap > 0
+       AND abs(i.issue_size * b.close - i.file_market_cap) / i.file_market_cap > $1
+     ORDER BY b.trade_date, b.symbol`,
+    [MARKET_CAP_TOLERANCE],
+  );
+  return rows;
+}
+
+/** The lines `yarn review` prints for Market Cap mismatches: a section of its own, apart from the open items. */
+export function formatMarketCapMismatches(mismatches: MarketCapMismatch[]): string[] {
+  if (mismatches.length === 0) return [];
+  const rs = (v: string) => Number(v).toExponential(4);
+  return [
+    `\nMarket Cap differs from the Market Cap File by more than ${MARKET_CAP_TOLERANCE * 100}% (informational, no decision needed): ${mismatches.length} Security-day(s)`,
+    ...mismatches.map((m) => {
+      const pct = (Number(m.difference) * 100).toFixed(2);
+      return `  ${m.tradeDate} ${m.symbol}: ours ${rs(m.marketCap)} (${m.issueSize} shares × ${Number(m.close).toFixed(2)}), file ${rs(m.fileMarketCap)} (${pct}%)`;
+    }),
+  ];
+}

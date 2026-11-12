@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { unzipSync } from "fflate";
+import { MCAP_DIR } from "./config";
 
 export interface HttpResponse {
   status: number;
@@ -14,6 +16,8 @@ export interface FetchOptions {
   referenceDir: string;
   /** First Trading Day in scope (ISO date): where to start when `filesDir` has nothing in scope yet. */
   startDate: string;
+  /** First Trading Day whose Market Cap File is fetched: there is no backfill before it. */
+  mcapStartDate: string;
   /** Today in IST (ISO date). */
   today: string;
   http: Http;
@@ -28,6 +32,8 @@ export interface FetchResult {
   saved: string[];
   /** Days NSE had no bhavcopy for (weekends, holidays, not yet published). */
   noFile: string[];
+  /** Days NSE had no Market Cap File for. */
+  noMcapFile: string[];
   /** Everything that went wrong, one entry per day or snapshot. */
   failures: { what: string; reason: string }[];
 }
@@ -53,11 +59,41 @@ function bhavcopyUrl(iso: string): string {
   return `https://nsearchives.nseindia.com/products/content/sec_bhavdata_full_${day}${month}${year}.csv`;
 }
 
-/** The date of the newest `DDMONYYYY.csv` under filesDir on or after startDate, if any. */
-async function latestRawFileDate(filesDir: string, startDate: string): Promise<string | undefined> {
+function mcapFilePath(iso: string): string {
+  return path.join(MCAP_DIR, rawFilePath(iso));
+}
+
+function mcapUrl(iso: string): string {
+  const [year, month, day] = iso.split("-") as [string, string, string];
+  return `https://nsearchives.nseindia.com/archives/equities/bhavcopy/pr/PR${day}${month}${year.slice(2)}.zip`;
+}
+
+/**
+ * The Market Cap File inside NSE's PR zip: the one member named `mcap<ddmmyyyy>.csv` in any case.
+ * Undefined when the body is not a zip (NSE serves HTML 404 pages with status 200) or has no such member.
+ */
+function extractMarketCapFile(body: Buffer, iso: string): { zip: boolean; file?: Buffer } {
+  const [year, month, day] = iso.split("-");
+  const wanted = `mcap${day}${month}${year}.csv`;
+  let members: Record<string, Uint8Array>;
+  try {
+    members = unzipSync(body, { filter: (m) => m.name.toLowerCase() === wanted });
+  } catch {
+    return { zip: false };
+  }
+  const member = Object.values(members)[0];
+  return member ? { zip: true, file: Buffer.from(member) } : { zip: true };
+}
+
+/**
+ * The date of the newest `DDMONYYYY.csv` under `dir` on or after startDate, if any. Under `files/` that
+ * means Raw Files only: the Market Cap Files in `files/mcap/` are not bhavcopies.
+ */
+async function latestRawFileDate(dir: string, startDate: string, skip?: string): Promise<string | undefined> {
   let latest: string | undefined;
-  const entries = await fs.readdir(filesDir, { recursive: true }).catch(() => [] as string[]);
+  const entries = await fs.readdir(dir, { recursive: true }).catch(() => [] as string[]);
   for (const entry of entries) {
+    if (skip !== undefined && entry.split(path.sep)[0] === skip) continue;
     const m = /(?:^|[\\/])(\d{2})([A-Z]{3})(\d{4})\.csv$/.exec(entry);
     const month = m ? MONTHS.indexOf(m[2]!) : -1;
     if (!m || month < 0) continue;
@@ -143,7 +179,7 @@ const SNAPSHOTS: Snapshot[] = [
  * or snapshot failing does not stop the others.
  */
 export async function fetchInputs(opts: FetchOptions): Promise<FetchResult> {
-  const result: FetchResult = { saved: [], noFile: [], failures: [] };
+  const result: FetchResult = { saved: [], noFile: [], noMcapFile: [], failures: [] };
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   let requested = false;
   const get = async (url: string) => {
@@ -154,7 +190,7 @@ export async function fetchInputs(opts: FetchOptions): Promise<FetchResult> {
   const fail = (what: string, err: unknown) =>
     result.failures.push({ what, reason: err instanceof Error ? err.message : String(err) });
 
-  const latest = await latestRawFileDate(opts.filesDir, opts.startDate);
+  const latest = await latestRawFileDate(opts.filesDir, opts.startDate, MCAP_DIR);
   const first = latest === undefined ? opts.startDate : [opts.startDate, addDays(latest, 1 - LOOKBACK_DAYS)].sort().at(-1)!;
   for (let day = first; day <= opts.today; day = addDays(day, 1)) {
     const target = path.join(opts.filesDir, rawFilePath(day));
@@ -174,6 +210,30 @@ export async function fetchInputs(opts: FetchOptions): Promise<FetchResult> {
       }
     } catch (err) {
       fail(day, err);
+    }
+  }
+
+  const latestMcap = await latestRawFileDate(path.join(opts.filesDir, MCAP_DIR), opts.mcapStartDate);
+  const firstMcap =
+    latestMcap === undefined ? opts.mcapStartDate : [opts.mcapStartDate, addDays(latestMcap, 1 - LOOKBACK_DAYS)].sort().at(-1)!;
+  for (let day = firstMcap; day <= opts.today; day = addDays(day, 1)) {
+    const target = path.join(opts.filesDir, mcapFilePath(day));
+    if (await exists(target)) continue;
+    try {
+      const response = await get(mcapUrl(day));
+      if (response.status === 404) result.noMcapFile.push(day);
+      else if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
+      else {
+        const { zip, file } = extractMarketCapFile(response.body, day);
+        if (!zip) result.noMcapFile.push(day);
+        else if (!file) throw new Error("no Market Cap File in the zip");
+        else {
+          await saveNew(target, file);
+          result.saved.push(path.join("files", mcapFilePath(day)));
+        }
+      }
+    } catch (err) {
+      fail(`market cap ${day}`, err);
     }
   }
 
@@ -203,6 +263,7 @@ export function todayIst(now = new Date()): string {
 export function formatFetchResult(r: FetchResult): string[] {
   const lines = [`fetch: saved ${r.saved.length} file(s)`, ...r.saved.map((f) => `  ${f}`)];
   if (r.noFile.length > 0) lines.push(`  ${r.noFile.length} day(s) with no bhavcopy on NSE (weekends, holidays, not yet published)`);
+  if (r.noMcapFile.length > 0) lines.push(`  ${r.noMcapFile.length} day(s) with no Market Cap File on NSE (weekends, holidays, not yet published)`);
   for (const f of r.failures) lines.push(`  FAILED ${f.what}: ${f.reason}`);
   if (r.failures.length > 0) lines.push("  Run fetch again to retry the failed ones.");
   return lines;

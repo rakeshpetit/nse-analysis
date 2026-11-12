@@ -21,9 +21,9 @@ Run from `pipeline/`:
 | -------------- | -------------------------------------------------------------------------------------------------- |
 | `yarn migrate` | Applies `migrations/NNNN_*.sql` in order; already-applied files are skipped.                       |
 | `yarn fetch`   | Brings `files/` and `reference/` up to date from NSE (see "Fetch"). Needs no database.           |
-| `yarn load`    | Raw Files dated on/after the start date (2024-09-01) → `staged.bhavcopy_row`. Safe to re-run.      |
-| `yarn build`   | `staged.bhavcopy_row` → `core.security` and its symbol history, then `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
-| `yarn review`  | Lists every open review item from the last `build` (see "Review queue"). Read-only.                |
+| `yarn load`    | Raw Files dated on/after the start date (2024-09-01) → `staged.bhavcopy_row`; Market Cap Files → `staged.mcap_row`. Safe to re-run. |
+| `yarn build`   | `staged.bhavcopy_row` → `core.security` and its symbol history, then `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions, and `core.issue_size` from the Market Cap Files. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
+| `yarn review`  | Lists every open review item from the last `build` (see "Review queue"), then Market Cap mismatches (see "Market Cap Files"). Read-only. |
 | `yarn daily`   | `fetch` → `load` → `build` → `review`, then a short summary (see "Daily run"). Run `yarn migrate` first. |
 | `yarn test`    | vitest. Needs a local Postgres; each test file creates and drops its own database.                 |
 | `yarn typecheck` |                                                                                                  |
@@ -44,6 +44,10 @@ Run from `pipeline/`:
   day for which NSE serves *another day's* file (it does that for some holidays): a Raw File's DATE1
   must be its own day. The 10-day look-back retries a day that failed while a later one succeeded;
   days already on disk cost no request.
+- **Market Cap Files.** From `MCAP_START_DATE` (`src/config.ts`, no backfill before it) the same way:
+  `PR<ddmmyy>.zip` from NSE's `bhavcopy/pr` archive, with the one member named `mcap<ddmmyyyy>.csv`
+  (any case) saved byte for byte as `files/mcap/YYYY/MON/DDMONYYYY.csv`. A 404, or a 200 whose body is
+  not a zip (NSE serves HTML pages), is "no file that day"; a zip without that member is a failure.
 - **Reference Snapshots.** Corporate actions from the start date up to today
   (`reference/corporate-actions/YYYY-MM-DD.json`, named by today's date), `symbolchange.csv` (`reference/symbol-changes/`) and
   `namechange.csv` (`reference/name-changes/`), named by date. Nothing reads the name changes yet.
@@ -101,6 +105,26 @@ files actually on disk from 2024-09-01 on are the 15-column layout written by
 `packages/stockdata/fetchBhavcopy.js` (`SYMBOL, SERIES, DATE1, PREV_CLOSE, …,
 DELIV_PER`), with values padded by a leading space and `-` or blank for
 missing values. `load` reads that layout and rejects any other header.
+
+## Market Cap Files
+
+NSE's daily Market Cap File carries what bhavcopies lack: share counts. `load` stages every line
+(values space-padded, dates like `11 NOV 2026`, three totals lines at the end) into `staged.mcap_row`.
+They are never read as bhavcopies, wherever `fetch` and `load` look for those.
+
+`build` fills `core.issue_size`: one row per Security and Trading Day (the date inside the file) with
+its Issue Size and the file's `Market Cap(Rs.)`, for EQ and BE only. The symbol resolves to a Security
+as for Daily Bars, so a rename keeps it the same Security; a symbol that never has a Daily Bar is not a
+Security and is dropped, and so are the totals lines (Symbol `Listed`/`Permitted`/`Total`, blank Series)
+and every other series. Security Name is ignored for now.
+
+Our Market Cap is Issue Size × our unadjusted close. `yarn review` ends with a section listing every
+Security-day where that differs from the file's by more than 0.5% of the file's figure
+(`marketCapMismatches`). They are informational: no Review Decision is needed.
+
+```sql
+SELECT symbol, trade_date, issue_size FROM core.issue_size ORDER BY trade_date DESC, symbol LIMIT 10;
+```
 
 ## Messy Raw Files
 

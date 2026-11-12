@@ -78,6 +78,30 @@ const SCOPED_BARS = `(${IN_SCOPE_ROWS}) n
   ) holder
   WHERE n.series IN ('EQ', 'BE')`;
 
+/**
+ * Issue Size per Security per Trading Day, from the Market Cap Files, for EQ and BE only. The
+ * totals lines (Symbol Listed/Permitted/Total, blank Series) and every other series fall out of the
+ * series filter; a symbol that never has a Daily Bar is no Security and is dropped. The Trading Day is
+ * the date inside the file. The Security is the one holding the symbol that day, as for Daily Bars.
+ */
+const ISSUE_SIZES = `
+  INSERT INTO core.issue_size (security_id, symbol, trade_date, series, issue_size, file_market_cap)
+  SELECT DISTINCT ON (holder.security_id, n.trade_date)
+         holder.security_id, n.symbol, n.trade_date, n.series, n.issue_size::bigint, n.market_cap::numeric
+  FROM (
+    SELECT source_file, line_number, btrim(symbol) AS symbol, btrim(series) AS series,
+           to_date(NULLIF(btrim(trade_date), ''), 'DD Mon YYYY') AS trade_date,
+           ${nullIfBlank("issue_size")} AS issue_size, ${nullIfBlank("market_cap")} AS market_cap
+    FROM staged.mcap_row
+  ) n
+  CROSS JOIN LATERAL (
+    SELECT s.security_id FROM core.security_symbol s
+    WHERE s.symbol = n.symbol AND s.from_date <= n.trade_date
+    ORDER BY s.from_date DESC LIMIT 1
+  ) holder
+  WHERE n.series IN ('EQ', 'BE') AND n.trade_date >= $1::date
+  ORDER BY holder.security_id, n.trade_date, n.source_file, n.line_number`;
+
 /** A Security has one Daily Bar a day. Two (e.g. under its old and new symbol) mean the symbol change dates are wrong. */
 async function assertOneBarPerSecurityDay(client: pg.PoolClient, startDate: string): Promise<void> {
   const { rows } = await client.query<{ security_id: string; trade_date: string; bars: string }>(
@@ -329,7 +353,7 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
   let plan: AdjustmentPlan = { factors: [], skipped: [], pendingTexts: [], rejected: [], pendingDemergers: [] };
   const result = await withTransaction(db, async (client) => {
     await assertNoConflicts(client, opts.startDate);
-    await client.query("TRUNCATE core.security, core.security_symbol, core.daily_bar, core.daily_bar_flag");
+    await client.query("TRUNCATE core.security, core.security_symbol, core.daily_bar, core.daily_bar_flag, core.issue_size");
     const { rows: barSymbols } = await client.query<{ symbol: string }>(
       `SELECT DISTINCT symbol FROM (${IN_SCOPE_ROWS}) n WHERE series IN ('EQ', 'BE')`,
       [opts.startDate],
@@ -364,6 +388,7 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
       [opts.startDate],
     );
     await dropEmptySecurities(client);
+    await client.query(ISSUE_SIZES, [opts.startDate]);
     const securities = await loadSecurities(client);
     await client.query(FLAG_BARS);
     // Rights issues are priced from the Daily Bars just built, so the plan waits for them.

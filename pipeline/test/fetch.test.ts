@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { zipSync } from "fflate";
 import { fetchInputs, type FetchOptions, type Http, type HttpResponse } from "../src/fetch";
 
 const HEADER = 'SYMBOL, SERIES, DATE1, PREV_CLOSE, OPEN_PRICE, HIGH_PRICE, LOW_PRICE, LAST_PRICE, CLOSE_PRICE, AVG_PRICE, TTL_TRD_QNTY, TURNOVER_LACS, NO_OF_TRADES, DELIV_QTY, DELIV_PER\r\n';
@@ -9,6 +10,18 @@ const HEADER = 'SYMBOL, SERIES, DATE1, PREV_CLOSE, OPEN_PRICE, HIGH_PRICE, LOW_P
 /** Bytes NSE serves for a day: CRLF, padded values, no trailing newline: nothing a tidy parser would keep. */
 function bhavcopy(day: string): Buffer {
   return Buffer.from(`${HEADER}INFY, EQ, ${day}, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 10, 0.10, 1, -, -`, "latin1");
+}
+
+const MCAP_HEADER = "Trade Date,Symbol,Series,Security Name,Category,Last Trade Date,Face Value(Rs.),Issue Size,Close Price/Paid up value(Rs.),Market Cap(Rs.)\r\n";
+
+/** The bytes of a Market Cap File: padded values, CRLF and no trailing newline, nothing a tidy parser would keep. */
+function mcapFile(day: string): Buffer {
+  return Buffer.from(`${MCAP_HEADER}${day},INFY    ,EQ,Infosys Limited   ,Equity,${day}, 5.00, 4000000000,   1500.00,  6000000000000.00`, "latin1");
+}
+
+/** NSE's PR zip: the Market Cap File among the other files in it. */
+function prZip(ddmmyyyy: string, mcap: Buffer, name = `mcap${ddmmyyyy}.csv`): Buffer {
+  return Buffer.from(zipSync({ [`Pd${ddmmyyyy.slice(0, 4)}${ddmmyyyy.slice(6)}.csv`]: Buffer.from("other"), [name]: mcap }));
 }
 
 const ok = (body: Buffer | string): HttpResponse => ({ status: 200, body: Buffer.from(body) });
@@ -19,7 +32,7 @@ const SYMBOL_CHANGES = "NAME OF THE COMPANY,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE
 const NAME_CHANGES = "SYMBOL,OLD NAME OF THE COMPANY,NEW NAME OF THE COMPANY,EFFECTIVE DATE\n";
 
 /** A stand-in for NSE: the bhavcopy of each listed day, nothing for any other day. */
-function nse(days: Record<string, Buffer>, overrides: Record<string, HttpResponse | Error> = {}) {
+function nse(days: Record<string, Buffer>, overrides: Record<string, HttpResponse | Error> = {}, mcaps: Record<string, Buffer> = {}) {
   const requests: string[] = [];
   const http: Http = async (url) => {
     requests.push(url);
@@ -31,6 +44,8 @@ function nse(days: Record<string, Buffer>, overrides: Record<string, HttpRespons
     }
     const day = /sec_bhavdata_full_(\d{2})(\d{2})(\d{4})\.csv$/.exec(url);
     if (day) return days[`${day[3]}-${day[2]}-${day[1]}`] ? ok(days[`${day[3]}-${day[2]}-${day[1]}`]!) : notFound;
+    const pr = /\/pr\/PR(\d{2})(\d{2})(\d{2})\.zip$/.exec(url);
+    if (pr) return mcaps[`20${pr[3]}-${pr[2]}-${pr[1]}`] ? ok(mcaps[`20${pr[3]}-${pr[2]}-${pr[1]}`]!) : notFound;
     if (url.includes("corporates-corporateActions")) return ok(CORPORATE_ACTIONS);
     if (url.endsWith("symbolchange.csv")) return ok(SYMBOL_CHANGES);
     if (url.endsWith("namechange.csv")) return ok(NAME_CHANGES);
@@ -52,7 +67,7 @@ beforeEach(async () => {
 afterEach(() => fs.rm(dir, { recursive: true, force: true }));
 
 function options(http: Http, extra: Partial<FetchOptions> = {}): FetchOptions {
-  return { filesDir, referenceDir, startDate: "2024-09-01", today: "2026-11-12", http, delayMs: 0, ...extra };
+  return { filesDir, referenceDir, startDate: "2024-09-01", today: "2026-11-12", mcapStartDate: "2026-11-12", http, delayMs: 0, ...extra };
 }
 const read = (...p: string[]) => fs.readFile(path.join(dir, ...p));
 const exists = (...p: string[]) => fs.access(path.join(dir, ...p)).then(() => true, () => false);
@@ -180,5 +195,83 @@ describe("politeness", () => {
 
     expect(waits.length).toBe(requests.length - 1);
     expect(new Set(waits)).toEqual(new Set([250]));
+  });
+});
+
+describe("Market Cap Files", () => {
+  const mcapPath = (...p: string[]) => ["files", "mcap", ...p];
+
+  it("saves today's Market Cap File verbatim, taken out of NSE's zip, under files/mcap/", async () => {
+    const file = mcapFile("12 NOV 2026");
+    const { http, requests } = nse({}, {}, { "2026-11-12": prZip("12112026", file) });
+
+    const result = await fetchInputs(options(http));
+
+    expect(await read(...mcapPath("2026", "NOV", "12NOV2026.csv"))).toEqual(file);
+    expect(result.saved).toContain(path.join(...mcapPath("2026", "NOV", "12NOV2026.csv")));
+    expect(requests).toContain("https://nsearchives.nseindia.com/archives/equities/bhavcopy/pr/PR121126.zip");
+    expect(result.failures).toEqual([]);
+  });
+
+  it("finds the member whatever the case of its name (MCAP in 2024, mcap in 2026)", async () => {
+    const file = mcapFile("12 NOV 2026");
+    const { http } = nse({}, {}, { "2026-11-12": prZip("12112026", file, "MCAP12112026.csv") });
+
+    await fetchInputs(options(http));
+
+    expect(await read(...mcapPath("2026", "NOV", "12NOV2026.csv"))).toEqual(file);
+  });
+
+  it("does not go back before the start date", async () => {
+    const { http, requests } = nse({});
+
+    await fetchInputs(options(http, { mcapStartDate: "2026-11-11" }));
+
+    const days = requests.filter((u) => u.includes("/pr/PR")).map((u) => /PR(\d{6})/.exec(u)![1]);
+    expect(days).toEqual(["111126", "121126"]);
+  });
+
+  it("treats a 404 and an HTML page served with status 200 as no file that day, not a failure", async () => {
+    const { http } = nse({}, { PR111126: ok("<html>Not Found</html>") }, {});
+
+    const result = await fetchInputs(options(http, { mcapStartDate: "2026-11-11" }));
+
+    expect(result.failures).toEqual([]);
+    expect(result.noMcapFile).toEqual(["2026-11-11", "2026-11-12"]);
+    expect(await exists("files", "mcap")).toBe(false);
+  });
+
+  it("reports a zip with no Market Cap File in it, and other HTTP errors", async () => {
+    const empty = Buffer.from(zipSync({ "Pd121126.csv": Buffer.from("other") }));
+    const { http } = nse({}, { PR111126: { status: 503, body: Buffer.from("busy") } }, { "2026-11-12": empty });
+
+    const result = await fetchInputs(options(http, { mcapStartDate: "2026-11-11" }));
+
+    expect(result.failures.map((f) => f.what)).toEqual(["market cap 2026-11-11", "market cap 2026-11-12"]);
+    expect(await exists("files", "mcap")).toBe(false);
+  });
+
+  it("downloads nothing new and overwrites nothing when run again", async () => {
+    const file = mcapFile("12 NOV 2026");
+    await fetchInputs(options(nse({}, {}, { "2026-11-12": prZip("12112026", file) }).http));
+
+    const again = nse({}, {}, { "2026-11-12": prZip("12112026", Buffer.from("changed")) });
+    const result = await fetchInputs(options(again.http));
+
+    expect(result.saved).toEqual([]);
+    expect(await read(...mcapPath("2026", "NOV", "12NOV2026.csv"))).toEqual(file);
+    expect(again.requests.filter((u) => u.includes("/pr/PR121126"))).toEqual([]);
+  });
+
+  it("retries a day that failed while a later one was saved", async () => {
+    const zips = Object.fromEntries(
+      ["09", "10", "12"].map((d) => [`2026-11-${d}`, prZip(`${d}112026`, mcapFile(`${d} NOV 2026`))]),
+    );
+    await fetchInputs(options(nse({}, { PR101126: new Error("reset") }, zips).http, { mcapStartDate: "2026-11-09" }));
+    expect(await exists(...mcapPath("2026", "NOV", "10NOV2026.csv"))).toBe(false);
+
+    const result = await fetchInputs(options(nse({}, {}, zips).http, { mcapStartDate: "2026-11-09" }));
+
+    expect(result.saved).toEqual([path.join(...mcapPath("2026", "NOV", "10NOV2026.csv"))]);
   });
 });

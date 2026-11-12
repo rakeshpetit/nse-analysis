@@ -4,6 +4,12 @@ import { fileURLToPath } from "node:url";
 /** Trading Days before this date are out of scope (ADR 0002). */
 export const START_DATE = "2024-09-01";
 
+/** Where Market Cap Files live under the Raw Files directory. Bhavcopy code must not look in here. */
+export const MCAP_DIR = "mcap";
+
+/** The first Trading Day whose Market Cap File `fetch` downloads. There is no backfill before it. */
+export const MCAP_START_DATE = "2026-11-12";
+
 /**
  * A day-over-day Adjusted Price move bigger than this fraction (0.2 = 20%) with no
  * Corporate Action to explain it is a Suspected Break. Override with JUMP_THRESHOLD.

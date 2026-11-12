@@ -5,12 +5,12 @@ import { daily, formatSummary } from "./daily";
 import { DECISIONS_FILE } from "./decisions";
 import { formatFetchResult, fetchInputs, todayIst } from "./fetch";
 import { nseHttp } from "./nseHttp";
-import { FILES_DIR, MIGRATIONS_DIR, REFERENCE_DIR, REVIEW_DIR, START_DATE } from "./config";
+import { FILES_DIR, MCAP_START_DATE, MIGRATIONS_DIR, REFERENCE_DIR, REVIEW_DIR, START_DATE } from "./config";
 import type { Db } from "./db";
 import { connect } from "./db";
 import { load } from "./load";
 import { migrate } from "./migrate";
-import { review } from "./review";
+import { formatMarketCapMismatches, marketCapMismatches, review } from "./review";
 
 /** Downloads new Raw Files and today's Reference Snapshots; prints what happened and returns whether all went well. */
 async function fetchAll(): Promise<boolean> {
@@ -18,6 +18,7 @@ async function fetchAll(): Promise<boolean> {
     filesDir: FILES_DIR,
     referenceDir: REFERENCE_DIR,
     startDate: START_DATE,
+    mcapStartDate: MCAP_START_DATE,
     today: todayIst(),
     http: nseHttp(),
     delayMs: 1000,
@@ -77,11 +78,9 @@ const commands = {
   },
   async review(db: Db) {
     const items = await review(db, { startDate: START_DATE, referenceDir: REFERENCE_DIR, reviewDir: REVIEW_DIR });
-    if (items.length === 0) {
-      console.log("Nothing to review");
-      return;
-    }
-    console.log(`${items.length} open item(s):`);
+    const mismatchLines = formatMarketCapMismatches(await marketCapMismatches(db));
+    if (items.length === 0) console.log("Nothing to review");
+    else console.log(`${items.length} open item(s):`);
     for (const item of items) {
       console.log(`\n[${item.id}] ${item.summary}`);
       for (const line of item.detail) console.log(`  ${line}`);
@@ -94,6 +93,7 @@ const commands = {
         }
       }
     }
+    for (const line of mismatchLines) console.log(line);
   },
 };
 
