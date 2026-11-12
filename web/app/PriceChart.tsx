@@ -3,10 +3,13 @@ import type { PriceBar } from "./data.server";
 import { formatPrice } from "./format";
 import styles from "./PriceChart.module.css";
 
+const TOOLTIP_WIDTH_PX = 168;
+const TOOLTIP_GAP_PX = 16;
+
 /** Adjusted close as a line; hovering shows that day's Adjusted open, high, low and close. */
 export function PriceChart({ bars }: { bars: PriceBar[] }) {
   const container = useRef<HTMLDivElement>(null);
-  const [hovered, setHovered] = useState<{ bar: PriceBar; x: number } | null>(null);
+  const [hovered, setHovered] = useState<{ bar: PriceBar; left: number } | null>(null);
 
   useEffect(() => {
     const el = container.current;
@@ -19,7 +22,6 @@ export function PriceChart({ bars }: { bars: PriceBar[] }) {
       if (cancelled) return;
       const css = getComputedStyle(document.documentElement);
       const colors = () => ({
-        fg: css.getPropertyValue("--fg").trim(),
         muted: css.getPropertyValue("--muted").trim(),
         line: css.getPropertyValue("--line").trim(),
         accent: css.getPropertyValue("--accent").trim(),
@@ -46,7 +48,9 @@ export function PriceChart({ bars }: { bars: PriceBar[] }) {
       const byDate = new Map(bars.map((b) => [b.date, b]));
       chart.subscribeCrosshairMove((param) => {
         const bar = typeof param.time === "string" ? byDate.get(param.time) : undefined;
-        setHovered(bar && param.point ? { bar, x: param.point.x } : null);
+        if (!bar || !param.point) return setHovered(null);
+        const furthestLeft = el.clientWidth - TOOLTIP_WIDTH_PX;
+        setHovered({ bar, left: Math.max(0, Math.min(param.point.x + TOOLTIP_GAP_PX, furthestLeft)) });
       });
 
       const scheme = window.matchMedia("(prefers-color-scheme: dark)");
@@ -59,7 +63,7 @@ export function PriceChart({ bars }: { bars: PriceBar[] }) {
         scheme.removeEventListener("change", restyle);
         chart.remove();
       };
-    });
+    }).catch((error: unknown) => console.error("Could not load the chart", error));
 
     return () => {
       cancelled = true;
@@ -74,7 +78,7 @@ export function PriceChart({ bars }: { bars: PriceBar[] }) {
       {hovered && (
         <dl
           className={styles.tooltip}
-          style={{ left: Math.min(hovered.x + 16, (container.current?.clientWidth ?? 0) - 170) }}
+          style={{ left: hovered.left, width: TOOLTIP_WIDTH_PX }}
         >
           <dt className={styles.date}>{hovered.bar.date}</dt>
           <dd>

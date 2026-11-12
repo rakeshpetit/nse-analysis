@@ -17,7 +17,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 }
 
 export function meta({ params }: Route.MetaArgs) {
-  return [{ title: `${params.symbol} · Adjusted price` }];
+  return [{ title: `${params.symbol} · Adjusted Price` }];
 }
 
 export default function Company({ loaderData }: Route.ComponentProps) {

@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { companyPrices, openDb } from "../app/data.server";
+import type { Range } from "../app/ranges";
 import { createTestDb, seedBar, seedSymbolHistory, type TestDb } from "./testDb";
 
 let t: TestDb;
@@ -59,7 +60,7 @@ describe("companyPrices: range windows", () => {
     await seedSymbolHistory(t.writer, id, [{ symbol }]);
     for (const date of dates) await seedBar(t.writer, { id, symbol, date, close: 10 });
   }
-  const dates = async (symbol: string, range: "3M" | "6M" | "1Y") =>
+  const dates = async (symbol: string, range: Range) =>
     (await companyPrices(db, symbol, range))?.bars.map((b) => b.date);
 
   const HISTORY = [
