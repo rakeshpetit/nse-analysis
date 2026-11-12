@@ -1,5 +1,5 @@
 ---
-status: ready
+status: done
 type: AFK
 blocked_by: []
 ---
@@ -20,14 +20,20 @@ See GLOSSARY.md and ADR 0001/0002.
 
 ## Acceptance criteria
 
-- [ ] `pipeline/` is a yarn workspace, and `/packages` is untouched
-- [ ] Migrations create the `staged` and `core` schemas in a new database
-- [ ] `load` is safe to re-run: loading the same files twice gives the same Staged Rows
-- [ ] Every Staged Row can be traced to its Raw File and line
-- [ ] `build` produces Daily Bars only for EQ/BE and only for Trading Days ≥ the configured start date
-- [ ] RELIANCE's Daily Bars from Sep 2024 can be queried, and the values match the Raw Files exactly
-- [ ] A test loads a small fixture file and asserts the resulting Daily Bars
+- [x] `pipeline/` is a yarn workspace, and `/packages` is untouched
+- [x] Migrations create the `staged` and `core` schemas in a new database
+- [x] `load` is safe to re-run: loading the same files twice gives the same Staged Rows
+- [x] Every Staged Row can be traced to its Raw File and line
+- [x] `build` produces Daily Bars only for EQ/BE and only for Trading Days ≥ the configured start date
+- [x] RELIANCE's Daily Bars from Sep 2024 can be queried, and the values match the Raw Files exactly
+- [x] A test loads a small fixture file and asserts the resulting Daily Bars
 
 ## Blocked by
 
 None - can start immediately
+
+## Implementation notes
+
+- The Raw Files on disk are not `sec_bhavdata_full`; they are the 15-column layout written by `fetchBhavcopy.js`. `load` reads that layout. See `pipeline/README.md`.
+- On the real `files/`, `build` stops on a duplicate (symbol, Trading Day): 11 Sunday-named files hold a copy of the previous trading day (e.g. `08DEC2024.csv` is 2024-12-06). That is #0002. With those 11 excluded, 541 RELIANCE bars from 2024-09-02 matched the Raw Files exactly.
+- Pre-start files are skipped by the date in the file name, so files in other layouts are never opened. `build` also filters on the date inside the file.
