@@ -7,6 +7,7 @@
   --hover: #f4f6fa;
   --up: #0a7d33;
   --down: #c62828;
+  --accent: #1a56db;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,6 +19,7 @@
     --hover: #1f232b;
     --up: #4cc77a;
     --down: #ff6b6b;
+    --accent: #6ea8ff;
   }
 }
 

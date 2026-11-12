@@ -1,5 +1,5 @@
 ---
-status: ready
+status: done
 type: AFK
 blocked_by: ["0019"]
 ---
@@ -17,12 +17,12 @@ blocked_by: ["0019"]
 
 ## Acceptance criteria
 
-- [ ] Clicking a row on the list page opens that company's chart
-- [ ] 3M/6M/1Y change the window, and the last point is always the latest Trading Day
-- [ ] Hovering shows that day's Adjusted prices
-- [ ] A Security that was renamed shows bars from before and after the rename under its current symbol
-- [ ] An unknown symbol gives a 404
-- [ ] Data-access tests cover the range windows and symbol → Security resolution after a rename
+- [x] Clicking a row on the list page opens that company's chart
+- [x] 3M/6M/1Y change the window, and the last point is always the latest Trading Day
+- [x] Hovering shows that day's Adjusted prices
+- [x] A Security that was renamed shows bars from before and after the rename under its current symbol
+- [x] An unknown symbol gives a 404
+- [x] Data-access tests cover the range windows and symbol → Security resolution after a rename
 
 ## Blocked by
 

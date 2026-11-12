@@ -92,3 +92,19 @@ export async function seedIssueSize(
     [id, symbol, date, issueSize],
   );
 }
+
+/** Records the symbols a Security has traded under. `to` is exclusive; omit for the current one. */
+export async function seedSymbolHistory(
+  db: pg.Pool,
+  id: string,
+  history: { symbol: string; from?: string; to?: string }[],
+): Promise<void> {
+  await db.query("INSERT INTO core.security (security_id) VALUES ($1) ON CONFLICT DO NOTHING", [id]);
+  for (const h of history) {
+    await db.query(
+      `INSERT INTO core.security_symbol (security_id, symbol, from_date, to_date)
+       VALUES ($1, $2, COALESCE($3::date, '-infinity'), COALESCE($4::date, 'infinity'))`,
+      [id, h.symbol, h.from ?? null, h.to ?? null],
+    );
+  }
+}

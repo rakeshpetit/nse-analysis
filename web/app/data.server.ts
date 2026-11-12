@@ -1,4 +1,5 @@
 import pg from "pg";
+import { RANGE_MONTHS, type Range } from "./ranges";
 
 /**
  * Every query the web app makes lives in this module (ADR 0004). It reads the pipeline's
@@ -84,4 +85,44 @@ export async function topSecurities(db: Db): Promise<TopSecurities> {
       changePct: r.change_pct,
     })),
   };
+}
+
+export interface PriceBar {
+  /** Trading Day, YYYY-MM-DD. */
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+export interface CompanyPrices {
+  /** The Security's current symbol. */
+  symbol: string;
+  /** Adjusted bars, oldest first. */
+  bars: PriceBar[];
+}
+
+/**
+ * One Security's Adjusted Price history. `symbol` is its current symbol; it is resolved to the
+ * Security ID, so bars from before a rename are included. Null when no Security trades under it.
+ */
+export async function companyPrices(db: Db, symbol: string, range: Range): Promise<CompanyPrices | null> {
+  const { rows: found } = await db.query<{ security_id: string }>(
+    "SELECT security_id FROM core.security_symbol WHERE symbol = $1 AND to_date = 'infinity'",
+    [symbol],
+  );
+  const securityId = found[0]?.security_id;
+  if (securityId === undefined) return null;
+
+  const { rows } = await db.query<{ date: string; open: number; high: number; low: number; close: number }>(
+    `SELECT trade_date::text AS date, open::float8 AS open, high::float8 AS high,
+            low::float8 AS low, close::float8 AS close
+     FROM adjusted.daily_bar
+     WHERE security_id = $1
+       AND trade_date >= (SELECT max(trade_date) FROM adjusted.daily_bar) - make_interval(months => $2)
+     ORDER BY trade_date`,
+    [securityId, RANGE_MONTHS[range]],
+  );
+  return { symbol, bars: rows };
 }
