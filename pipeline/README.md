@@ -94,19 +94,28 @@ Inputs live under `reference/` (git-tracked, never edited by the pipeline):
 - `action-interpretations.csv`: one row per exact `subject` text, with columns
   `description,type,ratio,old_face_value,new_face_value,issue_price`.
   `type` is `bonus` (`ratio` `a:b`), `split` or `consolidation` (old/new face
-  value), or `not_price_relevant`. `rights` and `demerger` rows are accepted but
-  not adjusted yet (#0008, #0009), so they are reported as skipped.
+  value), or `not_price_relevant`. `rights` (`ratio` `a:b`, `issue_price` = face
+  value + premium) is adjusted using TERP; `demerger` rows are accepted but not adjusted
+  yet (#0009), so they are reported as skipped.
 
 | Action                 | Adjustment Factor                        |
 | ---------------------- | ---------------------------------------- |
 | Split / consolidation  | old face value ÷ new face value          |
 | Bonus a:b              | (a+b) ÷ b                                |
+| Rights a:b at price I  | prior close ÷ TERP, TERP = (b · prior close + a · I) ÷ (a + b) |
 | Same ex-date           | factors multiply                         |
 
 Bars strictly before the ex-date are adjusted (a non-Trading-Day ex-date works the
 same way). Prices (incl. prev close, average price) are divided by the cumulative
 factor of all later ex-dates; traded and delivery quantities are multiplied;
 turnover, trades and delivery % are unchanged. Values keep full precision.
+
+Prior close for a rights issue is the last Daily Bar close before the ex-date. A rights
+issue with no earlier Daily Bar is skipped and reported, like an uninterpreted action. An issue
+price at or above the prior close gives a factor of 1 or less: it is applied and recorded, but
+no price jump is expected for it, so it is never reported as an action with no visible jump
+(`adjusted.adjustment_factor.jump_num / jump_den` holds the part of the factor that should show
+as a jump).
 
 A Corporate Action with no interpretation row is never guessed: `build` prints it
 (`Skipped N Corporate Action(s)`) and applies no adjustment for it.

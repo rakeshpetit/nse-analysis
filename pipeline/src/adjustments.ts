@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
+import type pg from "pg";
 import type { Decision } from "./decisions";
 
 /** A Corporate Action as listed in a Reference Snapshot. */
@@ -24,6 +25,8 @@ export interface FactorRow {
   symbol: string;
   exDate: string;
   factor: Fraction;
+  /** The part of `factor` a price jump is expected for: `factor` without any rights issue at or above its prior close. */
+  jump: Fraction;
   cumulative: Fraction;
 }
 
@@ -32,7 +35,32 @@ interface ExDateFactor {
   symbol: string;
   exDate: string;
   factor: Fraction;
+  jump: Fraction;
 }
+
+/** An Adjustment Factor, and the part of it that shows as a price jump. */
+interface Resolved {
+  factor: Fraction;
+  jump: Fraction;
+}
+
+/**
+ * The close of a Security's last Daily Bar before an ex-date, as numeric text,
+ * or undefined when it has none. A rights issue's factor depends on it.
+ */
+export type PriorClose = (symbol: string, exDate: string) => Promise<string | undefined>;
+
+/** A PriorClose reading the unadjusted Daily Bars in Postgres. */
+export const priorCloseFrom =
+  (db: Pick<pg.Pool, "query">): PriorClose =>
+  async (symbol, exDate) => {
+    const { rows } = await db.query<{ close: string }>(
+      `SELECT close::text FROM core.daily_bar
+       WHERE symbol = $1 AND trade_date < $2::date ORDER BY trade_date DESC LIMIT 1`,
+      [symbol, exDate],
+    );
+    return rows[0]?.close;
+  };
 
 export interface AdjustmentPlan {
   factors: FactorRow[];
@@ -180,11 +208,30 @@ async function loadActions(referenceDir: string, startDate: string): Promise<Cor
   return [...unique.values()];
 }
 
+/** A rights issue of `a` new shares for every `b` held at `issuePrice`; its factor needs the prior close. */
+interface Rights {
+  rights: { a: bigint; b: bigint; issuePrice: Fraction };
+}
+
+/** What an Action Interpretation gives: a factor, a reason there is none yet, or a rights issue still to price. */
+type Outcome = Fraction | { skip: string } | Rights;
+
+/**
+ * Rights issue factor: prior close ÷ TERP, where
+ * TERP = (b · prior close + a · issue price) ÷ (a + b). Exact, like every factor.
+ */
+function rightsFactor({ a, b, issuePrice }: Rights["rights"], priorClose: Fraction): Fraction {
+  return fraction(
+    priorClose.num * issuePrice.den * (a + b),
+    b * priorClose.num * issuePrice.den + a * issuePrice.num * priorClose.den,
+  );
+}
+
 /**
  * The Adjustment Factor of one Action Interpretation, or the reason there is
  * none yet. Throws ShapeError when the fields do not fit the type.
  */
-function factorOf(i: Interpretation): Fraction | { skip: string } {
+function factorOf(i: Interpretation): Outcome {
   switch (i.type) {
     case "not_price_relevant":
       return ONE;
@@ -206,10 +253,10 @@ function factorOf(i: Interpretation): Fraction | { skip: string } {
       }
       return factor;
     }
-    case "rights":
-      ratio(i.ratio);
-      decimal(i.issue_price, "issue_price");
-      return { skip: 'interpretation type "rights" is not supported yet' };
+    case "rights": {
+      const { a, b } = ratio(i.ratio);
+      return { rights: { a, b, issuePrice: decimal(i.issue_price, "issue_price") } };
+    }
     case "demerger":
       return { skip: 'interpretation type "demerger" is not supported yet' };
     default:
@@ -234,16 +281,54 @@ function withoutRejected(actions: CorporateAction[], decisions: Decision[]): Cor
   return kept;
 }
 
+/** An outcome as a factor, pricing a rights issue from its prior close. */
+async function resolve(
+  action: CorporateAction,
+  outcome: Outcome,
+  priorClose: PriorClose,
+): Promise<Resolved | { skip: string }> {
+  if ("skip" in outcome) return outcome;
+  if (!("rights" in outcome)) return { factor: outcome, jump: outcome };
+
+  const close = await priorClose(action.symbol, action.exDate);
+  if (close === undefined) return { skip: "rights issue has no Daily Bar before its ex-date to take a prior close from" };
+  let price: Fraction;
+  try {
+    price = decimal(close, "prior close");
+  } catch (err) {
+    if (err instanceof ShapeError) return { skip: err.message };
+    throw err;
+  }
+  const factor = rightsFactor(outcome.rights, price);
+  // An issue price at or above the prior close gives a factor of 1 or less: recorded, but no jump is expected.
+  return { factor, jump: factor.num <= factor.den ? ONE : factor };
+}
+
+/** Several actions on one ex-date multiply together. */
+function addFactor(combined: Map<string, ExDateFactor>, symbol: string, exDate: string, add: Resolved): void {
+  const key = `${symbol}|${exDate}`;
+  const earlier = combined.get(key);
+  combined.set(key, {
+    symbol,
+    exDate,
+    factor: earlier ? multiply(earlier.factor, add.factor) : add.factor,
+    jump: earlier ? multiply(earlier.jump, add.jump) : add.jump,
+  });
+}
+
 /**
  * Turns the latest Reference Snapshot and the Action Interpretations into the
  * Adjustment Factors to apply. A Corporate Action whose description has no
  * interpretation (or one of an unsupported type) is skipped and reported, never
- * guessed. A "not price-relevant" one needs no factor and is not reported.
+ * guessed. A "not price-relevant" one needs no factor and is not reported. A
+ * rights issue takes its prior close from `priorClose`; without a Daily Bar
+ * before its ex-date it is skipped and reported.
  */
 export async function planAdjustments(
   referenceDir: string,
   startDate: string,
-  decisions: Decision[] = [],
+  decisions: Decision[],
+  priorClose: PriorClose,
 ): Promise<AdjustmentPlan> {
   const [listed, interpretations] = await Promise.all([
     loadActions(referenceDir, startDate),
@@ -252,7 +337,7 @@ export async function planAdjustments(
   const actions = withoutRejected(listed, decisions);
 
   // Every row is shape-checked, applied or not; a wrong one is held for review.
-  const outcomes = new Map<string, Fraction | { skip: string }>();
+  const outcomes = new Map<string, Outcome>();
   const rejected: RejectedInterpretation[] = [];
   for (const [description, interpretation] of interpretations) {
     try {
@@ -268,7 +353,7 @@ export async function planAdjustments(
   const combined = new Map<string, ExDateFactor>();
   for (const action of actions) {
     const interpretation = interpretations.get(action.description);
-    let outcome: Fraction | { skip: string };
+    let outcome: Outcome;
     if (!interpretation) {
       pending.add(action.description);
       outcome = { skip: "no Action Interpretation for this description" };
@@ -277,30 +362,17 @@ export async function planAdjustments(
     } else {
       continue; // rejected for shape: reported once, for review
     }
-    if ("skip" in outcome) {
-      skipped.push({ ...action, reason: outcome.skip });
+    const resolved = await resolve(action, outcome, priorClose);
+    if ("skip" in resolved) {
+      skipped.push({ ...action, reason: resolved.skip });
       continue;
     }
-    // Several actions on one ex-date multiply together.
-    const key = `${action.symbol}|${action.exDate}`;
-    const earlier = combined.get(key);
-    combined.set(key, {
-      symbol: action.symbol,
-      exDate: action.exDate,
-      factor: earlier ? multiply(earlier.factor, outcome) : outcome,
-    });
+    addFactor(combined, action.symbol, action.exDate, resolved);
   }
 
   // Actions a person added are not in NSE's list, and need no interpretation.
   for (const d of decisions) {
-    if (d.kind !== "add_action") continue;
-    const key = `${d.symbol}|${d.date}`;
-    const earlier = combined.get(key);
-    combined.set(key, {
-      symbol: d.symbol,
-      exDate: d.date,
-      factor: earlier ? multiply(earlier.factor, d.factor) : d.factor,
-    });
+    if (d.kind === "add_action") addFactor(combined, d.symbol, d.date, { factor: d.factor, jump: d.factor });
   }
 
   const bySymbol = new Map<string, ExDateFactor[]>();

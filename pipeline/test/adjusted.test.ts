@@ -76,10 +76,14 @@ describe("Adjusted layer", () => {
     expect(Number((await adjustedBar("UNKNOWNCO", "2024-10-28"))!.close)).toBe(200);
   });
 
-  it("reports an interpretation of a type not supported yet, and nothing else it should not", async () => {
+  it("reports only what it could not adjust", async () => {
     // Out-of-window OLDCO, price-irrelevant NOPRICE and the 'no ex-date' entry are not reported.
-    expect(result.skippedActions.map((a) => a.symbol).sort()).toEqual(["RIGHTSCO", "UNKNOWNCO"]);
-    expect(Number((await adjustedBar("RIGHTSCO", "2024-10-25"))!.close)).toBe(400);
+    expect(result.skippedActions.map((a) => a.symbol)).toEqual(["UNKNOWNCO"]);
+  });
+
+  it("adjusts a rights issue by its TERP factor", async () => {
+    // RIGHTSCO rights 1:10 at 15, prior close 400: TERP = (10 * 400 + 15) / 11, factor = 4400 / 4015
+    expect(Number((await adjustedBar("RIGHTSCO", "2024-10-25"))!.close)).toBeCloseTo(365.0, 2);
   });
 
   it("leaves a price-irrelevant Corporate Action's bars unadjusted", async () => {

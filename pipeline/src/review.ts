@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { planAdjustments, type AdjustmentPlan } from "./adjustments";
+import { planAdjustments, priorCloseFrom, type AdjustmentPlan } from "./adjustments";
 import { loadDecisions } from "./decisions";
 import type { Db } from "./db";
 
@@ -153,6 +153,6 @@ export async function review(db: Db, opts: ReviewOptions): Promise<ReviewItem[]>
       prices: await pricesAround(db, a.symbol, a.ex_date),
     });
   }
-  items.push(...interpretationItems(await planAdjustments(opts.referenceDir, opts.startDate, await loadDecisions(opts.reviewDir))));
+  items.push(...interpretationItems(await planAdjustments(opts.referenceDir, opts.startDate, await loadDecisions(opts.reviewDir), priorCloseFrom(db))));
   return items;
 }

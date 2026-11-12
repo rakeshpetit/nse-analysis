@@ -1,6 +1,7 @@
 import type pg from "pg";
 import {
   planAdjustments,
+  priorCloseFrom,
   writePendingFile,
   type AdjustmentPlan,
   type RejectedInterpretation,
@@ -124,8 +125,9 @@ async function buildAdjusted(client: pg.PoolClient, plan: AdjustmentPlan): Promi
   await client.query("TRUNCATE adjusted.daily_bar, adjusted.adjustment_factor");
   await client.query(
     `INSERT INTO adjusted.adjustment_factor
-       (symbol, ex_date, factor_num, factor_den, cumulative_num, cumulative_den)
-     SELECT * FROM unnest($1::text[], $2::date[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[])`,
+       (symbol, ex_date, factor_num, factor_den, cumulative_num, cumulative_den, jump_num, jump_den)
+     SELECT * FROM unnest($1::text[], $2::date[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[],
+                          $7::numeric[], $8::numeric[])`,
     [
       plan.factors.map((f) => f.symbol),
       plan.factors.map((f) => f.exDate),
@@ -133,6 +135,8 @@ async function buildAdjusted(client: pg.PoolClient, plan: AdjustmentPlan): Promi
       plan.factors.map((f) => f.factor.den.toString()),
       plan.factors.map((f) => f.cumulative.num.toString()),
       plan.factors.map((f) => f.cumulative.den.toString()),
+      plan.factors.map((f) => f.jump.num.toString()),
+      plan.factors.map((f) => f.jump.den.toString()),
     ],
   );
   await client.query(ADJUST_BARS);
@@ -171,7 +175,8 @@ const SUSPECTED_BREAKS = `
     AND (abs(open / prev_close - 1) > $1 OR abs(close / prev_close - 1) > $1)`;
 
 /**
- * Applied actions with no visible jump. Compares the last unadjusted bar before
+ * Applied actions with no visible jump (a rights issue at or above its prior
+ * close expects none, so is not reported). Compares the last unadjusted bar before
  * the ex-date with the first bar on or after it. The jump is visible when the
  * ratio of the previous close to the open, or to the close, is within the
  * threshold (as a fraction of the factor) of the factor. Actions with no bar on
@@ -182,7 +187,7 @@ const ACTIONS_WITHOUT_JUMP = `
     (symbol, ex_date, factor, prev_trade_date, prev_close, trade_date, open, close)
   SELECT symbol, ex_date, factor, prev_trade_date, prev_close, trade_date, open, close
   FROM (
-    SELECT a.symbol, a.ex_date, a.factor,
+    SELECT a.symbol, a.ex_date, a.jump_num / a.jump_den AS factor,
            p.trade_date AS prev_trade_date, p.close AS prev_close,
            n.trade_date, n.open, n.close
     FROM adjusted.adjustment_factor a
@@ -196,7 +201,7 @@ const ACTIONS_WITHOUT_JUMP = `
       WHERE b.symbol = a.symbol AND b.trade_date >= a.ex_date
       ORDER BY b.trade_date LIMIT 1
     ) n
-    WHERE a.factor_num <> a.factor_den AND p.close > 0
+    WHERE a.jump_num <> a.jump_den AND p.close > 0
   ) pairs
   WHERE NOT coalesce(abs(prev_close / nullif(open, 0) / factor - 1) <= $1, false)
     AND NOT coalesce(abs(prev_close / nullif(close, 0) / factor - 1) <= $1, false)`;
@@ -286,9 +291,7 @@ async function assertNoConflicts(client: pg.PoolClient, startDate: string): Prom
  */
 export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
   const decisions = await loadDecisions(opts.reviewDir);
-  const plan: AdjustmentPlan = opts.referenceDir
-    ? await planAdjustments(opts.referenceDir, opts.startDate, decisions)
-    : { factors: [], skipped: [], pendingTexts: [], rejected: [] };
+  let plan: AdjustmentPlan = { factors: [], skipped: [], pendingTexts: [], rejected: [] };
   const result = await withTransaction(db, async (client) => {
     await assertNoConflicts(client, opts.startDate);
     await client.query("TRUNCATE core.daily_bar, core.daily_bar_flag");
@@ -316,6 +319,10 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
       [opts.startDate],
     );
     await client.query(FLAG_BARS);
+    // Rights issues are priced from the Daily Bars just built, so the plan waits for them.
+    if (opts.referenceDir) {
+      plan = await planAdjustments(opts.referenceDir, opts.startDate, decisions, priorCloseFrom(client));
+    }
     await assertAddedActionsApply(client, decisions.filter((d) => d.kind === "add_action"));
     await buildAdjusted(client, plan);
     await flagPrevClose(client);

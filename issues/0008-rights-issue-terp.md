@@ -1,5 +1,5 @@
 ---
-status: ready
+status: done
 type: AFK
 blocked_by: ["0004"]
 ---
@@ -17,9 +17,9 @@ Prior close is the last Daily Bar close before the ex-date. A rights issue whose
 
 ## Acceptance criteria
 
-- [ ] Fixture test with a real rights issue from the window, checking the expected factor
-- [ ] A rights factor combines with other same-day actions by multiplying
-- [ ] A rights Action Interpretation without an issue price is rejected for its shape, not guessed
+- [x] Fixture test with a real rights issue from the window, checking the expected factor
+- [x] A rights factor combines with other same-day actions by multiplying
+- [x] A rights Action Interpretation without an issue price is rejected for its shape, not guessed
 
 ## Blocked by
 
