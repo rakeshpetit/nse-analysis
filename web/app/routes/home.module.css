@@ -1,0 +1,57 @@
+.asOf {
+  color: var(--muted);
+  margin-top: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.table th,
+.table td {
+  padding: 0.5rem 0.75rem;
+}
+
+.table .num {
+  text-align: right;
+}
+
+.row {
+  position: relative;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:hover {
+  background: var(--hover);
+}
+
+.link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Stretches the symbol link over the whole row. */
+.link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.up {
+  color: var(--up);
+}
+
+.down {
+  color: var(--down);
+}
