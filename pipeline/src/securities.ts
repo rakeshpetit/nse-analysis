@@ -31,6 +31,30 @@ export interface SymbolHolding {
 /** Plain ordering: ISO dates and "-infinity" compare right as text, but localeCompare ignores the "-". */
 const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/** The newest `.csv` by file name under `reference/<subdir>/`, or undefined when there is none. */
+async function newestSnapshot(referenceDir: string, subdir: string): Promise<string | undefined> {
+  const dir = path.join(referenceDir, subdir);
+  let names: string[];
+  try {
+    names = await fs.readdir(dir);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw err;
+  }
+  const latest = names.filter((n) => n.endsWith(".csv")).sort().at(-1);
+  return latest === undefined ? undefined : path.join(dir, latest);
+}
+
+/** A NSE CSV snapshot as records keyed by trimmed, upper-cased header: values may carry padding. */
+async function readCsvRecords(file: string): Promise<Record<string, string>[]> {
+  return parse(await fs.readFile(file, "utf8"), {
+    columns: (header: string[]) => header.map((h) => h.trim().toUpperCase()),
+    skip_empty_lines: true,
+    trim: true,
+    relax_column_count: true,
+  });
+}
+
 const SYMBOL_CHANGE_COLUMNS = ["OLD SYMBOL", "NEW SYMBOL", "EFFECTIVE DATE"];
 
 /**
@@ -41,24 +65,9 @@ const SYMBOL_CHANGE_COLUMNS = ["OLD SYMBOL", "NEW SYMBOL", "EFFECTIVE DATE"];
  * symbol may since have been reused by another company.
  */
 export async function loadSymbolChanges(referenceDir: string, startDate: string): Promise<SymbolChange[]> {
-  const dir = path.join(referenceDir, "symbol-changes");
-  let names: string[];
-  try {
-    names = await fs.readdir(dir);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw err;
-  }
-  const latest = names.filter((n) => n.endsWith(".csv")).sort().at(-1);
-  if (latest === undefined) return [];
-
-  const file = path.join(dir, latest);
-  const records: Record<string, string>[] = parse(await fs.readFile(file, "utf8"), {
-    columns: (header: string[]) => header.map((h) => h.trim().toUpperCase()),
-    skip_empty_lines: true,
-    trim: true,
-    relax_column_count: true,
-  });
+  const file = await newestSnapshot(referenceDir, "symbol-changes");
+  if (file === undefined) return [];
+  const records = await readCsvRecords(file);
   const changes: SymbolChange[] = [];
   for (const [i, r] of records.entries()) {
     const where = `${file} row ${i + 2}`;
@@ -202,4 +211,38 @@ export async function dropEmptySecurities(client: pg.PoolClient): Promise<void> 
     `DELETE FROM ${table} t WHERE NOT EXISTS (SELECT 1 FROM core.daily_bar b WHERE b.security_id = t.security_id)`;
   await client.query(unused("core.security_symbol"));
   await client.query(unused("core.security"));
+}
+
+const EQUITY_LIST_COLUMNS = ["SYMBOL", "NAME OF COMPANY"];
+
+/**
+ * Company names by symbol from the newest `reference/equity-list/*.csv` by file name (NSE's
+ * `EQUITY_L.csv`: header cells and values may carry padding). A missing snapshot means no names are known.
+ */
+export async function loadEquityNames(referenceDir: string): Promise<Map<string, string>> {
+  const file = await newestSnapshot(referenceDir, "equity-list");
+  if (file === undefined) return new Map();
+  const records = await readCsvRecords(file);
+  const result = new Map<string, string>();
+  for (const [i, r] of records.entries()) {
+    for (const c of EQUITY_LIST_COLUMNS) if (!(c in r)) throw new Error(`${file} row ${i + 2}: missing column "${c}"`);
+    const [symbol, name] = [r["SYMBOL"]!, r["NAME OF COMPANY"]!];
+    if (symbol !== "" && name !== "") result.set(symbol, name);
+  }
+  return result;
+}
+
+/**
+ * Records each Security's current name: the list's name for the symbol it trades under now.
+ * Names listed for other symbols (retired ones, companies with no Daily Bars) are not used.
+ */
+export async function writeSecurityNames(client: pg.PoolClient, namesBySymbol: Map<string, string>): Promise<void> {
+  await client.query(
+    `INSERT INTO core.security_name (security_id, name)
+     SELECT s.security_id, n.name
+     FROM core.security_symbol s
+     JOIN unnest($1::text[], $2::text[]) AS n(symbol, name) ON n.symbol = s.symbol
+     WHERE s.to_date = 'infinity'`,
+    [[...namesBySymbol.keys()], [...namesBySymbol.values()]],
+  );
 }

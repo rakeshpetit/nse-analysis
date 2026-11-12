@@ -30,6 +30,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               <tr>
                 <th className={styles.num}>#</th>
                 <th>Symbol</th>
+                <th>Name</th>
                 <th className={styles.num}>Market Cap</th>
                 <th className={styles.num}>Close</th>
                 <th className={styles.num}>1-day change</th>
@@ -45,6 +46,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                       {s.symbol}
                     </Link>
                   </td>
+                  <td>{s.name}</td>
                   <td className={styles.num}>{formatCrore(s.marketCapCr)}</td>
                   <td className={styles.num}>{formatPrice(s.close)}</td>
                   <td className={`${styles.num} ${styles[changeDirection(s.changePct)]}`}>

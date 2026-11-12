@@ -9,7 +9,7 @@ import {
 } from "./adjustments";
 import { JUMP_THRESHOLD } from "./config";
 import { assertAddedActionsApply, dismissBreaks, loadDecisions } from "./decisions";
-import { dropEmptySecurities, loadSecurities, loadSymbolChanges, writeSecurities } from "./securities";
+import { dropEmptySecurities, loadEquityNames, loadSecurities, loadSymbolChanges, writeSecurities, writeSecurityNames } from "./securities";
 import { withTransaction, type Db } from "./db";
 
 export interface BuildOptions {
@@ -353,7 +353,7 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
   let plan: AdjustmentPlan = { factors: [], skipped: [], pendingTexts: [], rejected: [], pendingDemergers: [] };
   const result = await withTransaction(db, async (client) => {
     await assertNoConflicts(client, opts.startDate);
-    await client.query("TRUNCATE core.security, core.security_symbol, core.daily_bar, core.daily_bar_flag, core.issue_size");
+    await client.query("TRUNCATE core.security, core.security_symbol, core.security_name, core.daily_bar, core.daily_bar_flag, core.issue_size");
     const { rows: barSymbols } = await client.query<{ symbol: string }>(
       `SELECT DISTINCT symbol FROM (${IN_SCOPE_ROWS}) n WHERE series IN ('EQ', 'BE')`,
       [opts.startDate],
@@ -388,6 +388,7 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
       [opts.startDate],
     );
     await dropEmptySecurities(client);
+    await writeSecurityNames(client, opts.referenceDir ? await loadEquityNames(opts.referenceDir) : new Map());
     await client.query(ISSUE_SIZES, [opts.startDate]);
     const securities = await loadSecurities(client);
     await client.query(FLAG_BARS);

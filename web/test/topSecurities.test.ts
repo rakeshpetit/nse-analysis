@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { openDb, topSecurities } from "../app/data.server";
-import { createTestDb, seedBar, seedIssueSize, type TestDb } from "./testDb";
+import { createTestDb, seedBar, seedIssueSize, seedName, type TestDb } from "./testDb";
 
 let t: TestDb;
 let db: ReturnType<typeof openDb>;
@@ -14,7 +14,7 @@ afterAll(async () => {
 });
 afterEach(async () => {
   await t.writer.query(
-    "TRUNCATE core.daily_bar, adjusted.daily_bar, core.issue_size, core.security CASCADE",
+    "TRUNCATE core.daily_bar, adjusted.daily_bar, core.issue_size, core.security_name, core.security CASCADE",
   );
 });
 
@@ -33,8 +33,8 @@ describe("topSecurities", () => {
     expect(result).toEqual({
       tradeDate: DAY,
       securities: [
-        { rank: 1, symbol: "BIG", marketCapCr: 10_000, close: 2_000, changePct: -20 },
-        { rank: 2, symbol: "SMALL", marketCapCr: 100, close: 100, changePct: 25 },
+        { rank: 1, symbol: "BIG", name: "BIG", marketCapCr: 10_000, close: 2_000, changePct: -20 },
+        { rank: 2, symbol: "SMALL", name: "SMALL", marketCapCr: 100, close: 100, changePct: 25 },
       ],
     });
   });
@@ -82,6 +82,21 @@ describe("topSecurities", () => {
     const { securities } = await topSecurities(db);
 
     expect(securities).toEqual([]);
+  });
+
+  it("gives each Security its company name, falling back to the symbol where none is known", async () => {
+    await seedBar(t.writer, { id: "ID1", symbol: "NAMED", date: DAY, close: 10 });
+    await seedIssueSize(t.writer, "ID1", DAY, 2_000_000, "NAMED");
+    await seedName(t.writer, "ID1", "Named Industries Limited");
+    await seedBar(t.writer, { id: "ID2", symbol: "NONAME", date: DAY, close: 10 });
+    await seedIssueSize(t.writer, "ID2", DAY, 1_000_000, "NONAME");
+
+    const { securities } = await topSecurities(db);
+
+    expect(securities.map((s) => [s.symbol, s.name])).toEqual([
+      ["NAMED", "Named Industries Limited"],
+      ["NONAME", "NONAME"],
+    ]);
   });
 
   it("returns only the 30 largest", async () => {

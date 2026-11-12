@@ -16,19 +16,20 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return { ...prices, range };
 }
 
-export function meta({ params }: Route.MetaArgs) {
-  return [{ title: `${params.symbol} · Adjusted Price` }];
+export function meta({ params, data }: Route.MetaArgs) {
+  return [{ title: `${data?.name ?? params.symbol} · Adjusted Price` }];
 }
 
 export default function Company({ loaderData }: Route.ComponentProps) {
-  const { symbol, bars, range } = loaderData;
+  const { symbol, name, bars, range } = loaderData;
 
   return (
     <main className="page">
       <p>
         <Link to="/">← Top 30 Securities</Link>
       </p>
-      <h1>{symbol}</h1>
+      <h1>{name}</h1>
+      {name !== symbol && <p className={styles.symbol}>{symbol}</p>}
       <nav className={styles.ranges} aria-label="Range">
         {RANGES.map((r) => (
           <Link

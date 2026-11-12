@@ -30,6 +30,7 @@ const notFound: HttpResponse = { status: 404, body: Buffer.from("not found") };
 const CORPORATE_ACTIONS = '[ {"symbol":"INFY","exDate":"01-Sep-2026","subject":"Bonus 1:1"} ]\n';
 const SYMBOL_CHANGES = "NAME OF THE COMPANY,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE\r\n X Ltd ,OLD,NEW,01-SEP-2026\r\n";
 const NAME_CHANGES = "SYMBOL,OLD NAME OF THE COMPANY,NEW NAME OF THE COMPANY,EFFECTIVE DATE\n";
+const EQUITIES = "SYMBOL,NAME OF COMPANY, SERIES, DATE OF LISTING, PAID UP VALUE, MARKET LOT, ISIN NUMBER, FACE VALUE\r\nINFY,Infosys Limited,EQ,08-FEB-1995,5,1,INE009A01021,5\r\n";
 
 /** A stand-in for NSE: the bhavcopy of each listed day, nothing for any other day. */
 function nse(days: Record<string, Buffer>, overrides: Record<string, HttpResponse | Error> = {}, mcaps: Record<string, Buffer> = {}) {
@@ -49,6 +50,7 @@ function nse(days: Record<string, Buffer>, overrides: Record<string, HttpRespons
     if (url.includes("corporates-corporateActions")) return ok(CORPORATE_ACTIONS);
     if (url.endsWith("symbolchange.csv")) return ok(SYMBOL_CHANGES);
     if (url.endsWith("namechange.csv")) return ok(NAME_CHANGES);
+    if (url.endsWith("EQUITY_L.csv")) return ok(EQUITIES);
     return notFound;
   };
   return { http, requests };
@@ -131,7 +133,7 @@ describe("bhavcopies", () => {
 });
 
 describe("Reference Snapshots", () => {
-  it("saves today's corporate actions, symbol changes and name changes verbatim, named by date", async () => {
+  it("saves today's corporate actions, symbol changes, name changes and equity list verbatim, named by date", async () => {
     const { http, requests } = nse({});
 
     const result = await fetchInputs(options(http));
@@ -139,6 +141,8 @@ describe("Reference Snapshots", () => {
     expect(await read("reference", "corporate-actions", "2026-11-12.json")).toEqual(Buffer.from(CORPORATE_ACTIONS));
     expect(await read("reference", "symbol-changes", "2026-11-12.csv")).toEqual(Buffer.from(SYMBOL_CHANGES));
     expect(await read("reference", "name-changes", "2026-11-12.csv")).toEqual(Buffer.from(NAME_CHANGES));
+    expect(await read("reference", "equity-list", "2026-11-12.csv")).toEqual(Buffer.from(EQUITIES));
+    expect(requests).toContain("https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv");
     expect(result.failures).toEqual([]);
     // corporate actions cover the configured start date up to today
     const url = requests.find((u) => u.includes("corporates-corporateActions"))!;
@@ -155,6 +159,26 @@ describe("Reference Snapshots", () => {
 
     expect((await read("reference", "symbol-changes", "2026-11-12.csv")).toString()).toBe("earlier today");
     expect(requests.some((u) => u.endsWith("symbolchange.csv"))).toBe(false);
+  });
+
+  it("does not replace an equity list already saved for the day", async () => {
+    await fs.mkdir(path.join(referenceDir, "equity-list"), { recursive: true });
+    await fs.writeFile(path.join(referenceDir, "equity-list", "2026-11-12.csv"), "earlier today");
+    const { http, requests } = nse({});
+
+    await fetchInputs(options(http));
+
+    expect((await read("reference", "equity-list", "2026-11-12.csv")).toString()).toBe("earlier today");
+    expect(requests.some((u) => u.endsWith("EQUITY_L.csv"))).toBe(false);
+  });
+
+  it("does not save an equity list that is an error page", async () => {
+    const { http } = nse({}, { "EQUITY_L.csv": ok("<html>Access Denied</html>") });
+
+    const result = await fetchInputs(options(http));
+
+    expect(result.failures.map((f) => f.what)).toEqual(["equity-list"]);
+    expect(await exists("reference", "equity-list", "2026-11-12.csv")).toBe(false);
   });
 
   it("reports a snapshot that failed or came back as something other than the expected data, and still saves the rest", async () => {

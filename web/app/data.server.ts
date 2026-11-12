@@ -30,6 +30,8 @@ export const TOP_COUNT = 30;
 export interface RankedSecurity {
   rank: number;
   symbol: string;
+  /** Company name; the symbol where none is known. */
+  name: string;
   /** Market Cap in ₹ crore. */
   marketCapCr: number;
   /** Unadjusted close on the latest Trading Day. */
@@ -52,6 +54,7 @@ export async function topSecurities(db: Db): Promise<TopSecurities> {
   const { rows } = await db.query<{
     trade_date: string;
     symbol: string;
+    name: string;
     market_cap_cr: number;
     close: number;
     change_pct: number | null;
@@ -59,6 +62,7 @@ export async function topSecurities(db: Db): Promise<TopSecurities> {
     `WITH latest AS (SELECT max(trade_date) AS trade_date FROM core.daily_bar)
      SELECT b.trade_date::text AS trade_date,
             b.symbol,
+            COALESCE(n.name, b.symbol) AS name,
             (i.issue_size * b.close / 10000000)::float8 AS market_cap_cr,
             b.close::float8 AS close,
             ((a.close / NULLIF(a.prev_close, 0) - 1) * 100)::float8 AS change_pct
@@ -70,6 +74,7 @@ export async function topSecurities(db: Db): Promise<TopSecurities> {
        WHERE security_id = b.security_id AND trade_date <= b.trade_date
        ORDER BY trade_date DESC LIMIT 1
      ) i ON true
+     LEFT JOIN core.security_name n ON n.security_id = b.security_id
      ORDER BY market_cap_cr DESC, b.symbol
      LIMIT $1`,
     [TOP_COUNT],
@@ -80,6 +85,7 @@ export async function topSecurities(db: Db): Promise<TopSecurities> {
     securities: rows.map((r, i) => ({
       rank: i + 1,
       symbol: r.symbol,
+      name: r.name,
       marketCapCr: r.market_cap_cr,
       close: r.close,
       changePct: r.change_pct,
@@ -101,6 +107,8 @@ export interface PriceBar {
 export interface CompanyPrices {
   /** The Security's current symbol. */
   symbol: string;
+  /** Company name; the symbol where none is known. */
+  name: string;
   /** Adjusted bars, oldest first. */
   bars: PriceBar[];
 }
@@ -110,8 +118,11 @@ export interface CompanyPrices {
  * Security ID, so bars from before a rename are included. Null when no Security trades under it.
  */
 export async function companyPrices(db: Db, symbol: string, range: Range): Promise<CompanyPrices | null> {
-  const { rows: found } = await db.query<{ security_id: string }>(
-    "SELECT security_id FROM core.security_symbol WHERE symbol = $1 AND to_date = 'infinity'",
+  const { rows: found } = await db.query<{ security_id: string; name: string }>(
+    `SELECT s.security_id, COALESCE(n.name, s.symbol) AS name
+     FROM core.security_symbol s
+     LEFT JOIN core.security_name n ON n.security_id = s.security_id
+     WHERE s.symbol = $1 AND s.to_date = 'infinity'`,
     [symbol],
   );
   const securityId = found[0]?.security_id;
@@ -126,5 +137,5 @@ export async function companyPrices(db: Db, symbol: string, range: Range): Promi
      ORDER BY trade_date`,
     [securityId, RANGE_MONTHS[range]],
   );
-  return { symbol, bars: rows };
+  return { symbol, name: found[0]!.name, bars: rows };
 }

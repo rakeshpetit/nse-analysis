@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { companyPrices, openDb } from "../app/data.server";
 import type { Range } from "../app/ranges";
-import { createTestDb, seedBar, seedSymbolHistory, type TestDb } from "./testDb";
+import { createTestDb, seedBar, seedName, seedSymbolHistory, type TestDb } from "./testDb";
 
 let t: TestDb;
 let db: ReturnType<typeof openDb>;
@@ -15,8 +15,23 @@ afterAll(async () => {
 });
 afterEach(async () => {
   await t.writer.query(
-    "TRUNCATE core.daily_bar, adjusted.daily_bar, core.security_symbol, core.security CASCADE",
+    "TRUNCATE core.daily_bar, adjusted.daily_bar, core.security_symbol, core.security_name, core.security CASCADE",
   );
+});
+
+describe("companyPrices: name", () => {
+  it("is the Security's company name", async () => {
+    await seedSymbolHistory(t.writer, "ID1", [{ symbol: "ABC" }]);
+    await seedName(t.writer, "ID1", "Abc Industries Limited");
+
+    expect((await companyPrices(db, "ABC", "1Y"))?.name).toBe("Abc Industries Limited");
+  });
+
+  it("falls back to the symbol where no name is known", async () => {
+    await seedSymbolHistory(t.writer, "ID1", [{ symbol: "ABC" }]);
+
+    expect((await companyPrices(db, "ABC", "1Y"))?.name).toBe("ABC");
+  });
 });
 
 describe("companyPrices: symbol → Security", () => {

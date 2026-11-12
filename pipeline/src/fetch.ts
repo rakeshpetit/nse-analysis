@@ -170,6 +170,13 @@ const SNAPSHOTS: Snapshot[] = [
     url: () => "https://nsearchives.nseindia.com/content/equities/namechange.csv",
     check: checkCsv("SYMBOL,OLD NAME"),
   },
+  {
+    name: "equity-list",
+    dir: "equity-list",
+    ext: "csv",
+    url: () => "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
+    check: checkCsv("SYMBOL,NAME OF COMPANY"),
+  },
 ];
 
 /**

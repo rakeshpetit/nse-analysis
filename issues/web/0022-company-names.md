@@ -1,5 +1,5 @@
 ---
-status: ready
+status: done
 type: AFK
 blocked_by: ["0019"]
 ---
@@ -15,9 +15,9 @@ The list and company pages show only symbols. The Market Cap File's Security Nam
 
 ## Acceptance criteria
 
-- [ ] `fetch` saves `EQUITY_L.csv` byte-for-byte and does not overwrite a snapshot from the same day
-- [ ] The top 30 all show full names
-- [ ] A Security with no name in the snapshot falls back to its symbol
+- [x] `fetch` saves `EQUITY_L.csv` byte-for-byte and does not overwrite a snapshot from the same day
+- [ ] The top 30 all show full names (needs a real `yarn fetch` + `yarn build` to confirm)
+- [x] A Security with no name in the snapshot falls back to its symbol
 
 ## Blocked by
 

@@ -22,7 +22,7 @@ Run from `pipeline/`:
 | `yarn migrate` | Applies `migrations/NNNN_*.sql` in order; already-applied files are skipped.                       |
 | `yarn fetch`   | Brings `files/` and `reference/` up to date from NSE (see "Fetch"). Needs no database.           |
 | `yarn load`    | Raw Files dated on/after the start date (2024-09-01) → `staged.bhavcopy_row`; Market Cap Files → `staged.mcap_row`. Safe to re-run. |
-| `yarn build`   | `staged.bhavcopy_row` → `core.security` and its symbol history, then `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions, and `core.issue_size` from the Market Cap Files. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
+| `yarn build`   | `staged.bhavcopy_row` → `core.security`, its symbol history and current name (`core.security_name`), then `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions, and `core.issue_size` from the Market Cap Files. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
 | `yarn review`  | Lists every open review item from the last `build` (see "Review queue"), then Market Cap mismatches (see "Market Cap Files"). Read-only. |
 | `yarn daily`   | `fetch` → `load` → `build` → `review`, then a short summary (see "Daily run"). Run `yarn migrate` first. |
 | `yarn test`    | vitest. Needs a local Postgres; each test file creates and drops its own database.                 |
@@ -50,7 +50,8 @@ Run from `pipeline/`:
   not a zip (NSE serves HTML pages), is "no file that day"; a zip without that member is a failure.
 - **Reference Snapshots.** Corporate actions from the start date up to today
   (`reference/corporate-actions/YYYY-MM-DD.json`, named by today's date), `symbolchange.csv` (`reference/symbol-changes/`) and
-  `namechange.csv` (`reference/name-changes/`), named by date. Nothing reads the name changes yet.
+  `namechange.csv` (`reference/name-changes/`) and `EQUITY_L.csv` (`reference/equity-list/`), named by date.
+  Nothing reads the name changes yet.
 - Existing files are never overwritten, so a second run straight after downloads nothing new.
 - Requests carry a browser-like User-Agent and are one second apart.
 - A network failure or an unexpected body (an HTML error page) is reported per day or snapshot; the
@@ -215,6 +216,9 @@ Inputs live under `reference/` (never edited by the pipeline; the snapshots `fet
 git-ignored, `action-interpretations.csv` is tracked):
 
 - `symbol-changes/*.csv`: NSE's symbol changes (see "Securities and renames").
+- `equity-list/*.csv`: NSE's `EQUITY_L.csv`. `build` records each Security's current name (the
+  list's `NAME OF COMPANY` for the symbol it trades under now) in `core.security_name` from the
+  newest file by name. A Security whose symbol is not in the list, or no list at all, has no name.
 - `corporate-actions/*.json`: verbatim NSE corporate-actions API responses (a JSON
   array with `symbol`, `subject`, `exDate`). The newest file by name is used, e.g.
   `2025-09-01.json`; `yarn fetch` saves one. Only ex-dates

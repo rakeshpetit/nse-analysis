@@ -5,3 +5,4 @@ pending-interpretations.txt
 reference/corporate-actions/*.json
 reference/symbol-changes/*.csv
 reference/name-changes/
+reference/equity-list/

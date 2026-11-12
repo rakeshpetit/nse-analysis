@@ -1,6 +1,6 @@
 # Web app reads the pipeline's tables directly
 
-The front-end lives in `web/`, a new React Router v7 app in framework mode that shares no code with the older `packages/`. Its server loaders query the pipeline's Postgres tables (`adjusted.daily_bar`, `core.security_symbol`, Issue Size) directly, through one data-access module, over connections opened with `default_transaction_read_only=on`. There is no API service and no published views. With one client running locally, an API would only be a second deploy and a second schema to keep in step. The pipeline stays the only writer.
+The front-end lives in `web/`, a new React Router v7 app in framework mode that shares no code with the older `packages/`. Its server loaders query the pipeline's Postgres tables (`adjusted.daily_bar`, `core.security_symbol`, `core.security_name`, Issue Size) directly, through one data-access module, over connections opened with `default_transaction_read_only=on`. There is no API service and no published views. With one client running locally, an API would only be a second deploy and a second schema to keep in step. The pipeline stays the only writer.
 
 ## Considered Options
 

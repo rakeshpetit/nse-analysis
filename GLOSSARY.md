@@ -21,7 +21,7 @@ A date on which NSE held a trading session, including special sessions (e.g. Sat
 _Avoid_: business day, file date
 
 **Reference Snapshot**:
-A dated, verbatim copy of an NSE reference list (corporate actions, symbol changes, name changes). Like a Raw File, it is never edited; newer snapshots supersede older ones.
+A dated, verbatim copy of an NSE reference list (corporate actions, symbol changes, name changes, the equity list with company names). Like a Raw File, it is never edited; newer snapshots supersede older ones.
 _Avoid_: master data, lookup file
 
 **Staged Row**:

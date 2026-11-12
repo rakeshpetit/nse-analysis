@@ -111,3 +111,9 @@ export async function seedSymbolHistory(
     );
   }
 }
+
+/** Records a Security's current name. */
+export async function seedName(db: pg.Pool, id: string, name: string): Promise<void> {
+  await db.query("INSERT INTO core.security (security_id) VALUES ($1) ON CONFLICT DO NOTHING", [id]);
+  await db.query("INSERT INTO core.security_name (security_id, name) VALUES ($1, $2)", [id, name]);
+}
