@@ -10,7 +10,7 @@ export interface DailyOptions {
   startDate: string;
   /**
    * Brings the Raw Files and Reference Snapshots up to date. Runs first. Leave it out to
-   * rebuild from what is already on disk (there is no `fetch` command yet, #0011).
+   * rebuild from what is already on disk.
    */
   fetch?: () => Promise<void>;
 }

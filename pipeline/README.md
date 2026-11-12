@@ -20,6 +20,7 @@ Run from `pipeline/`:
 | Command        | What it does                                                                                       |
 | -------------- | -------------------------------------------------------------------------------------------------- |
 | `yarn migrate` | Applies `migrations/NNNN_*.sql` in order; already-applied files are skipped.                       |
+| `yarn fetch`   | Brings `files/` and `reference/` up to date from NSE (see "Fetch"). Needs no database.           |
 | `yarn load`    | Raw Files dated on/after the start date (2024-09-01) → `staged.bhavcopy_row`. Safe to re-run.      |
 | `yarn build`   | `staged.bhavcopy_row` → `core.security` and its symbol history, then `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
 | `yarn review`  | Lists every open review item from the last `build` (see "Review queue"). Read-only.                |
@@ -33,13 +34,32 @@ Run from `pipeline/`:
 `TEST_ADMIN_URL` overrides the database used to create test databases
 (default `postgres://localhost/postgres`).
 
+## Fetch
+
+`yarn fetch` saves exactly what NSE serves and never converts it:
+
+- **Raw Files.** Every day without a file, from 10 days before the newest Raw File up to today (IST), is
+  requested from NSE's `sec_bhavdata_full` archive and saved as `files/YYYY/MON/DDMONYYYY.csv`. A day
+  NSE has no file for (404: weekends, holidays, not yet published) is skipped quietly, and so is a
+  day for which NSE serves *another day's* file (it does that for some holidays): a Raw File's DATE1
+  must be its own day. The 10-day look-back retries a day that failed while a later one succeeded;
+  days already on disk cost no request.
+- **Reference Snapshots.** Corporate actions from the start date up to today
+  (`reference/corporate-actions/YYYY-MM-DD.json`, named by today's date), `symbolchange.csv` (`reference/symbol-changes/`) and
+  `namechange.csv` (`reference/name-changes/`), named by date. Nothing reads the name changes yet.
+- Existing files are never overwritten, so a second run straight after downloads nothing new.
+- Requests carry a browser-like User-Agent and are one second apart.
+- A network failure or an unexpected body (an HTML error page) is reported per day or snapshot; the
+  rest still run. Re-run `fetch` to retry. `yarn fetch` exits non-zero if anything failed.
+
+`packages/stockdata/fetchBhavcopy.js` (which converts NSE's UDiFF files) is left as it is.
+
 ## Daily run
 
 `yarn daily` is the one command for the day:
 
-1. **fetch** brings Raw Files and Reference Snapshots up to date. `fetch` is not built yet (#0011), so
-   for now this step only prints a notice: put new Raw Files under `files/` and snapshots under
-   `reference/` by hand.
+1. **fetch** brings Raw Files and Reference Snapshots up to date (see "Fetch"). If it cannot reach NSE
+   it says so and the run carries on with what is on disk.
 2. **load** stages the Raw Files, **build** rebuilds every derived table, **review** counts the open items.
 
 It ends with a summary:
@@ -108,8 +128,8 @@ kept as the symbol the Security traded under on that date. Items for the review 
 Decisions still name `SYMBOL`, whichever symbol the Security held on the date given.
 
 `reference/symbol-changes/*.csv` holds NSE's `symbolchange.csv` verbatim (columns
-`NAME OF THE COMPANY,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE`). The newest file by name is used; save one
-by hand until `fetch` exists (#0011). The loader accepts NSE's quirks: rows are unsorted, values have
+`NAME OF THE COMPANY,OLD SYMBOL,NEW SYMBOL,EFFECTIVE DATE`). The newest file by name is used; `yarn fetch`
+saves one. The loader accepts NSE's quirks: rows are unsorted, values have
 leading spaces, dates are dd-MON-yyyy, and the last line is blank-looking. Without a snapshot no
 renames are known and every symbol is its own Security.
 
@@ -172,7 +192,7 @@ Inputs live under `reference/` (git-tracked, never edited by the pipeline):
 - `symbol-changes/*.csv`: NSE's symbol changes (see "Securities and renames").
 - `corporate-actions/*.json`: verbatim NSE corporate-actions API responses (a JSON
   array with `symbol`, `subject`, `exDate`). The newest file by name is used, e.g.
-  `2025-09-01.json`; save one by hand until `fetch` exists (#0011). Only ex-dates
+  `2025-09-01.json`; `yarn fetch` saves one. Only ex-dates
   on/after the start date matter. An action NSE lists twice counts once.
 - `action-interpretations.csv`: one row per exact `subject` text, with columns
   `description,type,ratio,old_face_value,new_face_value,issue_price`.

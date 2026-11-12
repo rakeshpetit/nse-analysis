@@ -3,6 +3,8 @@ import { PENDING_FILE } from "./adjustments";
 import { build } from "./build";
 import { daily, formatSummary } from "./daily";
 import { DECISIONS_FILE } from "./decisions";
+import { formatFetchResult, fetchInputs, todayIst } from "./fetch";
+import { nseHttp } from "./nseHttp";
 import { FILES_DIR, MIGRATIONS_DIR, REFERENCE_DIR, REVIEW_DIR, START_DATE } from "./config";
 import type { Db } from "./db";
 import { connect } from "./db";
@@ -10,7 +12,25 @@ import { load } from "./load";
 import { migrate } from "./migrate";
 import { review } from "./review";
 
+/** Downloads new Raw Files and today's Reference Snapshots; prints what happened and returns whether all went well. */
+async function fetchAll(): Promise<boolean> {
+  const result = await fetchInputs({
+    filesDir: FILES_DIR,
+    referenceDir: REFERENCE_DIR,
+    startDate: START_DATE,
+    today: todayIst(),
+    http: nseHttp(),
+    delayMs: 1000,
+  });
+  const lines = formatFetchResult(result);
+  for (const line of lines) (result.failures.length > 0 ? console.warn : console.log)(line);
+  return result.failures.length === 0;
+}
+
 const commands = {
+  async fetch() {
+    if (!(await fetchAll())) process.exitCode = 1;
+  },
   async migrate(db: Db) {
     const applied = await migrate(db, MIGRATIONS_DIR);
     console.log(applied.length ? `Applied: ${applied.join(", ")}` : "Nothing to migrate");
@@ -45,9 +65,9 @@ const commands = {
     }
   },
   async daily(db: Db) {
-    // `fetch` does not exist yet (#0011): until it does, daily works from what is on disk.
-    console.log("fetch: not available yet (#0011), using the Raw Files and Reference Snapshots on disk");
+    // A failed fetch is reported, not fatal: daily carries on with what is on disk.
     const summary = await daily(db, {
+      fetch: async () => void (await fetchAll()),
       filesDir: FILES_DIR,
       referenceDir: REFERENCE_DIR,
       reviewDir: REVIEW_DIR,
@@ -79,13 +99,17 @@ const commands = {
 
 const name = process.argv[2];
 if (name === undefined || !(name in commands)) {
-  console.error("Usage: cli <migrate|load|build|review|daily>");
+  console.error("Usage: cli <fetch|migrate|load|build|review|daily>");
   process.exit(1);
 }
 
-const db = connect();
-try {
-  await commands[name as keyof typeof commands](db);
-} finally {
-  await db.end();
+if (name === "fetch") {
+  await commands.fetch(); // needs no database
+} else {
+  const db = connect();
+  try {
+    await commands[name as Exclude<keyof typeof commands, "fetch">](db);
+  } finally {
+    await db.end();
+  }
 }

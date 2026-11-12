@@ -5,6 +5,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "fetch": "tsx src/cli.ts fetch",
     "migrate": "tsx src/cli.ts migrate",
     "load": "tsx src/cli.ts load",
     "build": "tsx src/cli.ts build",
