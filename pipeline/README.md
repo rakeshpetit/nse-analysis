@@ -106,6 +106,22 @@ turnover, trades and delivery % are unchanged. Values keep full precision.
 A Corporate Action with no interpretation row is never guessed: `build` prints it
 (`Skipped N Corporate Action(s)`) and applies no adjustment for it.
 
+### Interpreting new descriptions
+
+`build` never calls an LLM or the network (ADR 0003). Descriptions with no row in
+`action-interpretations.csv` are written to `reference/pending-interpretations.txt`
+(one per line, git-ignored, removed when nothing is pending) and `build` warns
+`N texts need interpreting`. Run the project skill `/interpret-corporate-actions` in
+Claude Code: it appends one row per description (fields and an example per type are in
+`.claude/skills/interpret-corporate-actions/SKILL.md`), then you review the diff of
+`reference/action-interpretations.csv` and commit it.
+
+`build` also checks each row's shape: a known `type`, positive `a:b` ratios and
+face/issue values, the fields that type requires (bonus: `ratio`; split/consolidation:
+both face values, lowered/raised respectively; rights: `ratio` and `issue_price`).
+A row with the wrong shape is not applied, is printed as `Rejected ... Action
+Interpretation(s)`, and is returned as `rejectedInterpretations` for the review queue (#0006).
+
 ```sql
 SELECT trade_date, close, factor FROM adjusted.daily_bar WHERE symbol = 'RELIANCE' ORDER BY trade_date;
 SELECT * FROM adjusted.adjustment_factor ORDER BY symbol, ex_date;

@@ -1,5 +1,11 @@
 import type pg from "pg";
-import { planAdjustments, type AdjustmentPlan, type SkippedAction } from "./adjustments";
+import {
+  planAdjustments,
+  writePendingFile,
+  type AdjustmentPlan,
+  type RejectedInterpretation,
+  type SkippedAction,
+} from "./adjustments";
 import { withTransaction, type Db } from "./db";
 
 export interface BuildOptions {
@@ -12,6 +18,10 @@ export interface BuildResult {
   bars: number;
   /** Corporate Actions in the window that produced no Adjustment Factor, and why. */
   skippedActions: SkippedAction[];
+  /** Distinct in-window descriptions still needing an Action Interpretation (also written to the pending file). */
+  pendingTexts: string[];
+  /** Action Interpretations with the wrong shape: not applied, held for the review queue (#0006). */
+  rejectedInterpretations: RejectedInterpretation[];
 }
 
 /** Trimmed text, with NSE's "no value" markers (blank, "-") as NULL. */
@@ -182,8 +192,8 @@ async function assertNoConflicts(client: pg.PoolClient, startDate: string): Prom
 export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
   const plan: AdjustmentPlan = opts.referenceDir
     ? await planAdjustments(opts.referenceDir, opts.startDate)
-    : { factors: [], skipped: [] };
-  return withTransaction(db, async (client) => {
+    : { factors: [], skipped: [], pendingTexts: [], rejected: [] };
+  const result = await withTransaction(db, async (client) => {
     await assertNoConflicts(client, opts.startDate);
     await client.query("TRUNCATE core.daily_bar, core.daily_bar_flag");
     const res = await client.query(
@@ -211,6 +221,13 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
     );
     await client.query(FLAG_BARS);
     await buildAdjusted(client, plan);
-    return { bars: res.rowCount ?? 0, skippedActions: plan.skipped };
+    return {
+      bars: res.rowCount ?? 0,
+      skippedActions: plan.skipped,
+      pendingTexts: plan.pendingTexts,
+      rejectedInterpretations: plan.rejected,
+    };
   });
+  if (opts.referenceDir) await writePendingFile(opts.referenceDir, plan.pendingTexts);
+  return result;
 }

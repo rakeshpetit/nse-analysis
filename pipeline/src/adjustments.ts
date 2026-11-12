@@ -36,6 +36,26 @@ interface ExDateFactor {
 export interface AdjustmentPlan {
   factors: FactorRow[];
   skipped: SkippedAction[];
+  /** Distinct in-window descriptions with no Action Interpretation yet, sorted. */
+  pendingTexts: string[];
+  /** Action Interpretations whose shape is wrong. They are never applied; they await review. */
+  rejected: RejectedInterpretation[];
+}
+
+/** An Action Interpretation with the wrong shape for its type, and what is wrong with it. */
+export interface RejectedInterpretation {
+  description: string;
+  reason: string;
+}
+
+/** Where `build` lists the descriptions waiting for the `interpret-corporate-actions` skill. */
+export const PENDING_FILE = "pending-interpretations.txt";
+
+/** Writes the pending file (one description per line), or removes a stale one when nothing is pending. */
+export async function writePendingFile(referenceDir: string, texts: string[]): Promise<void> {
+  const file = path.join(referenceDir, PENDING_FILE);
+  if (texts.length === 0) await fs.rm(file, { force: true });
+  else await fs.writeFile(file, texts.join("\n") + "\n");
 }
 
 /** An exact ratio of positive integers in lowest terms. */
@@ -55,12 +75,24 @@ function fraction(num: bigint, den: bigint): Fraction {
 
 const multiply = (a: Fraction, b: Fraction): Fraction => fraction(a.num * b.num, a.den * b.den);
 
+/** An Action Interpretation field that does not fit its type. */
+class ShapeError extends Error {}
+
 /** A positive decimal such as "10" or "2.5" as an exact fraction. */
 function decimal(text: string, what: string): Fraction {
   const m = /^(\d+)(?:\.(\d+))?$/.exec(text.trim());
   const value = m ? fraction(BigInt(m[1]! + (m[2] ?? "")), 10n ** BigInt((m[2] ?? "").length)) : null;
-  if (!value || value.num === 0n) throw new Error(`${what} must be a positive number, got "${text}"`);
+  if (!value || value.num === 0n) throw new ShapeError(`${what} must be a positive number, got "${text}"`);
   return value;
+}
+
+/** A ratio "a:b" of positive whole numbers. */
+function ratio(text: string): { a: bigint; b: bigint } {
+  const m = /^(\d+):(\d+)$/.exec(text.trim());
+  if (!m || BigInt(m[1]!) === 0n || BigInt(m[2]!) === 0n) {
+    throw new ShapeError(`ratio must be two positive whole numbers like "a:b", got "${text}"`);
+  }
+  return { a: BigInt(m[1]!), b: BigInt(m[2]!) };
 }
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -88,6 +120,7 @@ interface Interpretation {
   ratio: string;
   old_face_value: string;
   new_face_value: string;
+  issue_price: string;
 }
 
 const INTERPRETATION_COLUMNS = ["description", "type", "ratio", "old_face_value", "new_face_value", "issue_price"];
@@ -112,6 +145,7 @@ async function loadInterpretations(referenceDir: string): Promise<Map<string, In
       ratio: r.ratio!,
       old_face_value: r.old_face_value!,
       new_face_value: r.new_face_value!,
+      issue_price: r.issue_price!,
     });
   }
   return byDescription;
@@ -145,25 +179,40 @@ async function loadActions(referenceDir: string, startDate: string): Promise<Cor
   return [...unique.values()];
 }
 
-/** The Adjustment Factor of one Action Interpretation, or the reason there is none. */
+/**
+ * The Adjustment Factor of one Action Interpretation, or the reason there is
+ * none yet. Throws ShapeError when the fields do not fit the type.
+ */
 function factorOf(i: Interpretation): Fraction | { skip: string } {
   switch (i.type) {
     case "not_price_relevant":
       return ONE;
     case "bonus": {
-      const m = /^(\d+):(\d+)$/.exec(i.ratio.trim());
-      if (!m || BigInt(m[2]!) === 0n) throw new Error(`bonus ratio must look like "a:b", got "${i.ratio}"`);
-      return fraction(BigInt(m[1]!) + BigInt(m[2]!), BigInt(m[2]!));
+      const { a, b } = ratio(i.ratio);
+      return fraction(a + b, b);
     }
     case "split":
     case "consolidation": {
       // A consolidation is a split run backwards: its new face value is the larger one.
       const old = decimal(i.old_face_value, "old_face_value");
       const next = decimal(i.new_face_value, "new_face_value");
-      return fraction(old.num * next.den, old.den * next.num);
+      const factor = fraction(old.num * next.den, old.den * next.num);
+      if (i.type === "split" && factor.num <= factor.den) {
+        throw new ShapeError("a split must lower the face value (old_face_value above new_face_value)");
+      }
+      if (i.type === "consolidation" && factor.num >= factor.den) {
+        throw new ShapeError("a consolidation must raise the face value (new_face_value above old_face_value)");
+      }
+      return factor;
     }
+    case "rights":
+      ratio(i.ratio);
+      decimal(i.issue_price, "issue_price");
+      return { skip: 'interpretation type "rights" is not supported yet' };
+    case "demerger":
+      return { skip: 'interpretation type "demerger" is not supported yet' };
     default:
-      return { skip: `interpretation type "${i.type}" is not supported yet` };
+      throw new ShapeError(`unknown type "${i.type}"`);
   }
 }
 
@@ -179,13 +228,32 @@ export async function planAdjustments(referenceDir: string, startDate: string): 
     loadInterpretations(referenceDir),
   ]);
 
+  // Every row is shape-checked, applied or not; a wrong one is held for review.
+  const outcomes = new Map<string, Fraction | { skip: string }>();
+  const rejected: RejectedInterpretation[] = [];
+  for (const [description, interpretation] of interpretations) {
+    try {
+      outcomes.set(description, factorOf(interpretation));
+    } catch (err) {
+      if (!(err instanceof ShapeError)) throw err;
+      rejected.push({ description, reason: err.message });
+    }
+  }
+
   const skipped: SkippedAction[] = [];
+  const pending = new Set<string>();
   const combined = new Map<string, ExDateFactor>();
   for (const action of actions) {
     const interpretation = interpretations.get(action.description);
-    const outcome = interpretation
-      ? factorOf(interpretation)
-      : { skip: "no Action Interpretation for this description" };
+    let outcome: Fraction | { skip: string };
+    if (!interpretation) {
+      pending.add(action.description);
+      outcome = { skip: "no Action Interpretation for this description" };
+    } else if (outcomes.has(action.description)) {
+      outcome = outcomes.get(action.description)!;
+    } else {
+      continue; // rejected for shape: reported once, for review
+    }
     if ("skip" in outcome) {
       skipped.push({ ...action, reason: outcome.skip });
       continue;
@@ -213,5 +281,5 @@ export async function planAdjustments(referenceDir: string, startDate: string): 
     }
   }
   skipped.sort((a, b) => a.exDate.localeCompare(b.exDate) || a.symbol.localeCompare(b.symbol));
-  return { factors, skipped };
+  return { factors, skipped, pendingTexts: [...pending].sort(), rejected };
 }
