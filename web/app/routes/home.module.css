@@ -55,3 +55,7 @@
 .down {
   color: var(--down);
 }
+
+.flat {
+  color: var(--muted);
+}

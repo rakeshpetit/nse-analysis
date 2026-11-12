@@ -1,14 +1,11 @@
 import { Link } from "react-router";
-import { openDb, topSecurities } from "../data.server";
-import { formatChange, formatCrore, formatPrice } from "../format";
+import { getDb, topSecurities } from "../data.server";
+import { changeDirection, formatChange, formatCrore, formatPrice } from "../format";
 import type { Route } from "./+types/home";
 import styles from "./home.module.css";
 
-let db: ReturnType<typeof openDb> | undefined;
-
 export async function loader() {
-  db ??= openDb();
-  return topSecurities(db);
+  return topSecurities(getDb());
 }
 
 export function meta() {
@@ -50,15 +47,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   </td>
                   <td className={styles.num}>{formatCrore(s.marketCapCr)}</td>
                   <td className={styles.num}>{formatPrice(s.close)}</td>
-                  <td
-                    className={`${styles.num} ${
-                      s.changePct === null || s.changePct === 0
-                        ? ""
-                        : s.changePct > 0
-                          ? styles.up
-                          : styles.down
-                    }`}
-                  >
+                  <td className={`${styles.num} ${styles[changeDirection(s.changePct)]}`}>
                     {formatChange(s.changePct)}
                   </td>
                 </tr>

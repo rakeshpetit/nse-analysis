@@ -17,6 +17,13 @@ export function openDb(url = process.env.DATABASE_URL): Db {
   });
 }
 
+let shared: Db | undefined;
+
+/** The app's one pool, opened on first use. */
+export function getDb(): Db {
+  return (shared ??= openDb());
+}
+
 export const TOP_COUNT = 30;
 
 export interface RankedSecurity {

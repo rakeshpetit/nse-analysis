@@ -11,9 +11,16 @@ export function formatPrice(value: number): string {
   return price.format(value);
 }
 
+/** Which way a change reads once rounded to the two decimals shown: a `0.00%` is flat. */
+export function changeDirection(pct: number | null): "up" | "down" | "flat" {
+  if (pct === null) return "flat";
+  const shown = Number(pct.toFixed(2));
+  return shown > 0 ? "up" : shown < 0 ? "down" : "flat";
+}
+
 /** A signed percentage with two decimals, e.g. `+1.25%`, `-0.40%`; a dash when unknown. */
 export function formatChange(pct: number | null): string {
   if (pct === null) return "–";
-  const rounded = pct.toFixed(2);
-  return `${pct > 0 && rounded !== "0.00" ? "+" : ""}${rounded}%`;
+  const sign = changeDirection(pct) === "up" ? "+" : "";
+  return `${sign}${pct.toFixed(2)}%`;
 }
