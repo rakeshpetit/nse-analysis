@@ -1,7 +1,7 @@
 # NSE data pipeline
 
 Turns the Raw Files under `files/` into queryable Daily Bars in Postgres. See
-[GLOSSARY.md](../GLOSSARY.md), [docs/adr](../docs/adr) and [issues](../issues).
+[GLOSSARY.md](../GLOSSARY.md), [docs/adr](../docs/adr) and [issues](../issues/pipeline).
 The older `packages/stockdata` code is untouched.
 
 ## Setup

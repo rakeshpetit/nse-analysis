@@ -5,12 +5,16 @@ Turns daily NSE bhavcopy files into a clean, split- and bonus-adjusted price his
 ## Sources
 
 **Raw File**:
-One daily bhavcopy CSV under `files/`, kept exactly as received. The pipeline only reads it.
+One daily NSE file under `files/` (a Bhavcopy or a Market Cap File), kept exactly as received. The pipeline only reads it.
 _Avoid_: input file, data dump
 
 **Bhavcopy**:
 NSE's end-of-day summary of every instrument traded on one trading day, published in several layouts over the years.
 _Avoid_: daily report
+
+**Market Cap File**:
+NSE's end-of-day list of every listed Security's Issue Size, close and Market Cap for one Trading Day.
+_Avoid_: MCAP file, PR file, shares file
 
 **Trading Day**:
 A date on which NSE held a trading session, including special sessions (e.g. Saturday Budget or Muhurat sessions). It is the date written inside the bhavcopy, not the date in the file name.
@@ -43,6 +47,16 @@ _Avoid_: candle, OHLC row, clean row
 **Quality Flag**:
 A named reason a Daily Bar looks implausible (e.g. high below low). A flagged bar is kept, never deleted.
 _Avoid_: error, bad row
+
+## Size
+
+**Issue Size**:
+The total number of a Security's shares in issue on a Trading Day, as NSE reports it. It counts every share, including promoter holdings, so it is not the free float.
+_Avoid_: shares outstanding, share count, free float
+
+**Market Cap**:
+A Security's total value on one Trading Day: its Issue Size times that day's unadjusted close.
+_Avoid_: market capitalisation, valuation, free-float market cap
 
 ## Adjustments
 
