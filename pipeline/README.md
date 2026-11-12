@@ -21,11 +21,12 @@ Run from `pipeline/`:
 | -------------- | -------------------------------------------------------------------------------------------------- |
 | `yarn migrate` | Applies `migrations/NNNN_*.sql` in order; already-applied files are skipped.                       |
 | `yarn load`    | Raw Files dated on/after the start date (2024-09-01) → `staged.bhavcopy_row`. Safe to re-run.      |
-| `yarn build`   | `staged.bhavcopy_row` → `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags). Rebuilt from scratch. Fails if Raw Files disagree on a Trading Day. |
+| `yarn build`   | `staged.bhavcopy_row` → `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
 | `yarn test`    | vitest. Needs a local Postgres; each test file creates and drops its own database.                 |
 | `yarn typecheck` |                                                                                                  |
 
 `FILES_DIR` overrides the Raw Files location (default: `../files`).
+`REFERENCE_DIR` overrides the reference location (default: `../reference`).
 `TEST_ADMIN_URL` overrides the database used to create test databases
 (default `postgres://localhost/postgres`).
 
@@ -70,8 +71,45 @@ SELECT * FROM core.quality_flag_count;   -- bars per flag name, across all bars
 ```
 
 Prev-close continuity needs Corporate Actions to rule out legitimate breaks, so
-it lives with jump matching (#0006). The Adjusted layer (#0004) must carry these
-flags through.
+it lives with jump matching (#0006). `adjusted.daily_bar_flag` is a view of the
+same flags, since they describe the bar as traded.
+
+## Adjusted layer
+
+`build` also fills `adjusted.daily_bar` (same keys as `core.daily_bar`), derived
+from Daily Bars and Adjustment Factors. Nothing ever UPDATEs Daily Bars or Raw
+Files (ADR 0001).
+
+Inputs live under `reference/` (git-tracked, never edited by the pipeline):
+
+- `corporate-actions/*.json`: verbatim NSE corporate-actions API responses (a JSON
+  array with `symbol`, `subject`, `exDate`). The newest file by name is used, e.g.
+  `2025-09-01.json`; save one by hand until `fetch` exists (#0011). Only ex-dates
+  on/after the start date matter. An action NSE lists twice counts once.
+- `action-interpretations.csv`: one row per exact `subject` text, with columns
+  `description,type,ratio,old_face_value,new_face_value,issue_price`.
+  `type` is `bonus` (`ratio` `a:b`), `split` or `consolidation` (old/new face
+  value), or `not_price_relevant`. `rights` and `demerger` rows are accepted but
+  not adjusted yet (#0008, #0009), so they are reported as skipped.
+
+| Action                 | Adjustment Factor                        |
+| ---------------------- | ---------------------------------------- |
+| Split / consolidation  | old face value ÷ new face value          |
+| Bonus a:b              | (a+b) ÷ b                                |
+| Same ex-date           | factors multiply                         |
+
+Bars strictly before the ex-date are adjusted (a non-Trading-Day ex-date works the
+same way). Prices (incl. prev close, average price) are divided by the cumulative
+factor of all later ex-dates; traded and delivery quantities are multiplied;
+turnover, trades and delivery % are unchanged. Values keep full precision.
+
+A Corporate Action with no interpretation row is never guessed: `build` prints it
+(`Skipped N Corporate Action(s)`) and applies no adjustment for it.
+
+```sql
+SELECT trade_date, close, factor FROM adjusted.daily_bar WHERE symbol = 'RELIANCE' ORDER BY trade_date;
+SELECT * FROM adjusted.adjustment_factor ORDER BY symbol, ex_date;
+```
 
 ## Queries
 

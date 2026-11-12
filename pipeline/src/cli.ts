@@ -1,5 +1,5 @@
 import { build } from "./build";
-import { FILES_DIR, MIGRATIONS_DIR, START_DATE } from "./config";
+import { FILES_DIR, MIGRATIONS_DIR, REFERENCE_DIR, START_DATE } from "./config";
 import type { Db } from "./db";
 import { connect } from "./db";
 import { load } from "./load";
@@ -15,8 +15,17 @@ const commands = {
     console.log(`Loaded ${rows} Staged Rows from ${files} Raw Files in ${FILES_DIR}`);
   },
   async build(db: Db) {
-    const { bars } = await build(db, { startDate: START_DATE });
-    console.log(`Built ${bars} Daily Bars`);
+    const { bars, skippedActions } = await build(db, {
+      startDate: START_DATE,
+      referenceDir: REFERENCE_DIR,
+    });
+    console.log(`Built ${bars} Daily Bars and the Adjusted layer`);
+    if (skippedActions.length > 0) {
+      console.warn(`Skipped ${skippedActions.length} Corporate Action(s) (no adjustment applied):`);
+      for (const a of skippedActions) {
+        console.warn(`  ${a.exDate} ${a.symbol}: "${a.description}" - ${a.reason}`);
+      }
+    }
   },
 };
 

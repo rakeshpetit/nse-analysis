@@ -9,6 +9,9 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 /** Directory holding the Raw Files. Override with FILES_DIR. */
 export const FILES_DIR = process.env.FILES_DIR ?? path.join(repoRoot, "files");
 
+/** Directory holding Reference Snapshots and Action Interpretations. Override with REFERENCE_DIR. */
+export const REFERENCE_DIR = process.env.REFERENCE_DIR ?? path.join(repoRoot, "reference");
+
 export const MIGRATIONS_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../migrations",

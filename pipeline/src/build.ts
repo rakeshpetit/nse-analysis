@@ -1,8 +1,17 @@
 import type pg from "pg";
+import { planAdjustments, type AdjustmentPlan, type SkippedAction } from "./adjustments";
 import { withTransaction, type Db } from "./db";
 
 export interface BuildOptions {
   startDate: string;
+  /** Directory holding `corporate-actions/*.json` and `action-interpretations.csv`. Without it nothing is adjusted. */
+  referenceDir?: string;
+}
+
+export interface BuildResult {
+  bars: number;
+  /** Corporate Actions in the window that produced no Adjustment Factor, and why. */
+  skippedActions: SkippedAction[];
 }
 
 /** Trimmed text, with NSE's "no value" markers (blank, "-") as NULL. */
@@ -56,6 +65,60 @@ const FLAG_BARS = `
                                AND (b.open <> 0 OR b.high <> 0 OR b.low <> 0 OR b.last <> 0 OR b.close <> 0))
   ) AS f(flag, raised)
   WHERE f.raised`;
+
+/**
+ * Adjusted Prices: each Daily Bar divided (prices) or multiplied (quantities) by
+ * the cumulative factor of the first ex-date after it, so bars on or after the
+ * last ex-date, and a symbol with no actions, keep factor 1. Whether the
+ * ex-date itself was a Trading Day for the symbol does not matter: only bars
+ * strictly before it are touched.
+ */
+const ADJUST_BARS = `
+  INSERT INTO adjusted.daily_bar
+    (symbol, trade_date, series, factor, prev_close, open, high, low, last, close,
+     avg_price, traded_qty, turnover_lacs, trades, delivery_qty, delivery_pct)
+  SELECT b.symbol, b.trade_date, b.series, f.num / f.den,
+         b.prev_close * f.den / f.num,
+         b.open * f.den / f.num,
+         b.high * f.den / f.num,
+         b.low * f.den / f.num,
+         b.last * f.den / f.num,
+         b.close * f.den / f.num,
+         b.avg_price * f.den / f.num,
+         b.traded_qty * f.num / f.den,
+         b.turnover_lacs,
+         b.trades,
+         b.delivery_qty * f.num / f.den,
+         b.delivery_pct
+  FROM core.daily_bar b
+  CROSS JOIN LATERAL (
+    SELECT coalesce(min(cumulative_num), 1) AS num, coalesce(min(cumulative_den), 1) AS den
+    FROM (
+      SELECT cumulative_num, cumulative_den
+      FROM adjusted.adjustment_factor a
+      WHERE a.symbol = b.symbol AND a.ex_date > b.trade_date
+      ORDER BY a.ex_date
+      LIMIT 1
+    ) next_ex_date
+  ) f`;
+
+async function buildAdjusted(client: pg.PoolClient, plan: AdjustmentPlan): Promise<void> {
+  await client.query("TRUNCATE adjusted.daily_bar, adjusted.adjustment_factor");
+  await client.query(
+    `INSERT INTO adjusted.adjustment_factor
+       (symbol, ex_date, factor_num, factor_den, cumulative_num, cumulative_den)
+     SELECT * FROM unnest($1::text[], $2::date[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[])`,
+    [
+      plan.factors.map((f) => f.symbol),
+      plan.factors.map((f) => f.exDate),
+      plan.factors.map((f) => f.factor.num.toString()),
+      plan.factors.map((f) => f.factor.den.toString()),
+      plan.factors.map((f) => f.cumulative.num.toString()),
+      plan.factors.map((f) => f.cumulative.den.toString()),
+    ],
+  );
+  await client.query(ADJUST_BARS);
+}
 
 const MAX_REPORTED_CONFLICTS = 20;
 
@@ -116,7 +179,10 @@ async function assertNoConflicts(client: pg.PoolClient, startDate: string): Prom
  * agree on a Trading Day collapse into one bar per symbol; ones that disagree
  * make the build fail before anything changes.
  */
-export async function build(db: Db, opts: BuildOptions): Promise<{ bars: number }> {
+export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
+  const plan: AdjustmentPlan = opts.referenceDir
+    ? await planAdjustments(opts.referenceDir, opts.startDate)
+    : { factors: [], skipped: [] };
   return withTransaction(db, async (client) => {
     await assertNoConflicts(client, opts.startDate);
     await client.query("TRUNCATE core.daily_bar, core.daily_bar_flag");
@@ -144,6 +210,7 @@ export async function build(db: Db, opts: BuildOptions): Promise<{ bars: number 
       [opts.startDate],
     );
     await client.query(FLAG_BARS);
-    return { bars: res.rowCount ?? 0 };
+    await buildAdjusted(client, plan);
+    return { bars: res.rowCount ?? 0, skippedActions: plan.skipped };
   });
 }
