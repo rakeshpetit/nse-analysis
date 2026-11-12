@@ -37,6 +37,26 @@ const IN_SCOPE_ROWS = `
   FROM staged.bhavcopy_row
   WHERE to_date(btrim(date1), 'DD-Mon-YYYY') >= $1::date`;
 
+/**
+ * Quality Flags: one row per (bar, flag name). The names are stable; analyses
+ * pick which to exclude. Open/last/close are only checked against the range when
+ * the range itself is sane (high >= low), so an inverted bar carries just
+ * high_below_low rather than a pile of knock-on flags.
+ */
+const FLAG_BARS = `
+  INSERT INTO core.daily_bar_flag (symbol, trade_date, flag)
+  SELECT b.symbol, b.trade_date, f.flag
+  FROM core.daily_bar b
+  CROSS JOIN LATERAL (VALUES
+    ('high_below_low',         b.high < b.low),
+    ('open_outside_range',     b.high >= b.low AND b.open  NOT BETWEEN b.low AND b.high),
+    ('close_outside_range',    b.high >= b.low AND b.close NOT BETWEEN b.low AND b.high),
+    ('last_outside_range',     b.high >= b.low AND b.last  NOT BETWEEN b.low AND b.high),
+    ('zero_qty_nonzero_price', b.traded_qty = 0
+                               AND (b.open <> 0 OR b.high <> 0 OR b.low <> 0 OR b.last <> 0 OR b.close <> 0))
+  ) AS f(flag, raised)
+  WHERE f.raised`;
+
 const MAX_REPORTED_CONFLICTS = 20;
 
 type Normalised = Record<string, string | number | null>;
@@ -99,7 +119,7 @@ async function assertNoConflicts(client: pg.PoolClient, startDate: string): Prom
 export async function build(db: Db, opts: BuildOptions): Promise<{ bars: number }> {
   return withTransaction(db, async (client) => {
     await assertNoConflicts(client, opts.startDate);
-    await client.query("TRUNCATE core.daily_bar");
+    await client.query("TRUNCATE core.daily_bar, core.daily_bar_flag");
     const res = await client.query(
       `INSERT INTO core.daily_bar
          (symbol, trade_date, series, prev_close, open, high, low, last, close,
@@ -123,6 +143,7 @@ export async function build(db: Db, opts: BuildOptions): Promise<{ bars: number 
        ORDER BY symbol, trade_date, series, source_file, line_number`,
       [opts.startDate],
     );
+    await client.query(FLAG_BARS);
     return { bars: res.rowCount ?? 0 };
   });
 }

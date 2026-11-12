@@ -21,7 +21,7 @@ Run from `pipeline/`:
 | -------------- | -------------------------------------------------------------------------------------------------- |
 | `yarn migrate` | Applies `migrations/NNNN_*.sql` in order; already-applied files are skipped.                       |
 | `yarn load`    | Raw Files dated on/after the start date (2024-09-01) → `staged.bhavcopy_row`. Safe to re-run.      |
-| `yarn build`   | `staged.bhavcopy_row` → `core.daily_bar` (EQ/BE only, typed, unadjusted). Rebuilt from scratch. Fails if Raw Files disagree on a Trading Day. |
+| `yarn build`   | `staged.bhavcopy_row` → `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags). Rebuilt from scratch. Fails if Raw Files disagree on a Trading Day. |
 | `yarn test`    | vitest. Needs a local Postgres; each test file creates and drops its own database.                 |
 | `yarn typecheck` |                                                                                                  |
 
@@ -50,6 +50,28 @@ missing values. `load` reads that layout and rejects any other header.
   in `core.daily_bar` changes. Fix it by removing or correcting the bad file's
   source, never by editing a Raw File.
 - Both quoting styles (`" SERIES"` and unquoted ` SERIES`) load the same.
+
+## Quality Flags
+
+`build` attaches flags to implausible Daily Bars in `core.daily_bar_flag`
+(one row per bar and flag; a bar can carry several). Flagged bars are kept and
+never corrected; analyses choose whether to exclude them.
+
+| Flag                     | Raised when                                                        |
+| ------------------------ | ------------------------------------------------------------------ |
+| `high_below_low`         | high < low                                                         |
+| `open_outside_range`     | open is outside low–high (only checked when high >= low)          |
+| `close_outside_range`    | close is outside low–high (only checked when high >= low)         |
+| `last_outside_range`     | last is outside low–high (only checked when high >= low)           |
+| `zero_qty_nonzero_price` | traded quantity is 0 but some price is non-zero                    |
+
+```sql
+SELECT * FROM core.quality_flag_count;   -- bars per flag name, across all bars
+```
+
+Prev-close continuity needs Corporate Actions to rule out legitimate breaks, so
+it lives with jump matching (#0006). The Adjusted layer (#0004) must carry these
+flags through.
 
 ## Queries
 
