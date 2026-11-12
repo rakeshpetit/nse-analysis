@@ -26,3 +26,4 @@ Vocabulary: [GLOSSARY.md](../GLOSSARY.md). Decisions: [docs/adr/](../docs/adr/).
 | 0014 | [Rights-entitlement tickers flood the review queue](0014-rights-entitlement-tickers.md) | AFK  | 0013                         |
 | 0015 | [Suspected Breaks after long trading gaps](0015-breaks-after-long-gaps.md) | AFK  | 0013                         |
 | 0016 | [ETF unit splits missing from NSE's list](0016-etf-unit-splits-missing.md) | AFK  | 0013                         |
+| 0017 | [Large dividends and deep-discount rights](0017-large-dividends-and-deep-discount-rights.md) | AFK  | 0013                         |

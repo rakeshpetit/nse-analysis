@@ -1,1 +1,297 @@
 decision,item,symbol,date,factor,note
+dismiss_break,break:3IINFO-RE:2025-10-08,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:5PAISA-RE:2026-03-30,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:5PAISA-RE:2026-04-01,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:AKSH-RE:2024-09-10,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:AKSH-RE:2024-09-11,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ASTEC-RE:2025-07-15,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ASTEC-RE:2025-07-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ASTEC-RE:2025-07-17,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ASTEC-RE:2025-07-18,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ATAL-RE:2024-09-03,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ATAL-RE:2024-09-04,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ATL-RE:2025-11-27,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:AVG-RE:2026-06-02,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:AVG-RE:2026-06-03,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:AVON-RE:2024-12-24,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:AVON-RE:2024-12-26,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BAIDFIN-RE:2025-11-26,,,,Rights entitlement ticker: genuine price discovery
+add_action,break:BANKNIFTY1:2026-02-27,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.9)
+dismiss_break,break:BASML-RE1:2025-05-14,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BASML-RE1:2025-05-15,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BASML-RE1:2025-05-19,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BFUTILITIE:2026-04-21,,,,Trading resumed after 179 days; check symbol was not reused
+dismiss_break,break:BHANDA-RE2:2026-03-09,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BHANDA-RE2:2026-03-10,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BHANDA-RE2:2026-03-11,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BHANDA-RE2:2026-03-12,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BHANDA-RE2:2026-03-13,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BHANDA-RE2:2026-03-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BTML-RE1:2025-04-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BTML-RE1:2025-04-17,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BTML-RE1:2025-04-21,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:BURNPUR:2026-08-11,,,,Trading resumed after 559 days; check symbol was not reused
+dismiss_break,break:CALSOFT-RE:2025-01-27,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CALSOFT-RE:2025-01-28,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CAMLIN-RE:2025-01-21,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CAPTRU-RE:2025-06-26,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CAPTRU-RE:2025-06-27,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CAPTRU-RE:2025-06-30,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CAPTRU-RE:2025-07-14,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CAPTRU-RE1:2025-10-21,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CAPTRU-RE1:2025-11-07,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CENTEXT-RE:2026-09-29,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CENTEXT-RE:2026-09-30,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:CENTEXT-RE:2026-10-08,,,,Rights entitlement ticker: genuine price discovery
+add_action,break:CONS:2026-02-27,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.9)
+dismiss_break,break:CYBER-RE:2025-08-19,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DAVAN-RE1:2025-08-18,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DAVAN-RE1:2025-08-19,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DELPH-RE:2025-10-28,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DELPH-RE:2025-10-29,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DELPH-RE:2025-10-31,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DHAN-RE:2025-01-09,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DHAN-RE:2025-01-10,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DHAN-RE:2025-01-13,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DUCON-RE:2024-09-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DUCON-RE:2024-09-18,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DUCON-RE:2024-09-19,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:DUCON-RE1:2026-09-04,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ESSEN-RE3:2026-06-01,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ESSEN-RE3:2026-06-04,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ESSEN-RE3:2026-06-05,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:FUSI-RE:2025-04-17,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:FUSI-RE:2025-04-21,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GANGAFO-RE:2026-07-13,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GANGAFO-RE:2026-07-14,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GATDVR-RE:2025-05-07,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GATDVR-RE:2025-05-08,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GATDVR-RE:2025-05-09,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GATECH-RE1:2025-05-07,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GATECH-RE1:2025-05-08,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GATECH-RE1:2025-05-09,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GLOBE-RE1:2025-01-27,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GLOBE-RE1:2025-01-28,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GLOBE-RE1:2025-01-29,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GLOBE-RE1:2025-01-31,,,,Rights entitlement ticker: genuine price discovery
+add_action,break:GOLDADD:2026-08-28,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.9)
+add_action,break:GROWWGOLD:2026-02-06,,,10,Unit split 10:1 missing from NSE list (prev close / open = 10.3)
+add_action,break:GROWWSLVR:2026-02-06,,,10,Unit split 10:1 missing from NSE list (prev close / open = 10.1)
+dismiss_break,break:GVPTECH-RE:2025-07-15,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GVPTECH-RE:2025-07-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GVPTECH-RE:2025-07-17,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:GVPTECH-RE:2025-07-18,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:HCG-RE:2026-03-12,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:HCG-RE:2026-03-13,,,,Rights entitlement ticker: genuine price discovery
+add_action,break:HEALTHADD:2026-07-03,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.8)
+dismiss_break,break:HILTON-RE1:2026-01-06,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:HILTON-RE2:2026-03-09,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:HILTON-RE2:2026-03-10,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:INDO-RE2:2025-12-02,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:INDO-RE2:2025-12-03,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:INDO-RE2:2025-12-04,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:INOXWI-RE:2025-08-08,,,,Rights entitlement ticker: genuine price discovery
+add_action,break:IVZINGOLD:2026-04-30,,,100,Unit split 100:1 missing from NSE list (prev close / open = 98.6)
+add_action,break:IVZINNIFTY:2026-07-31,,,10,Unit split 10:1 missing from NSE list (prev close / open = 10.1)
+dismiss_break,break:JYOTI-RE1:2025-02-18,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:JYOTI-RE1:2025-02-24,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:JYOTI-RE1:2025-02-25,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:KILITC-RE:2025-07-31,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:KRISHFL-RE:2025-12-29,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:KRISHFL-RE:2025-12-30,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:KSHITIJ-RE:2026-08-28,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:KSHITIJ-RE:2026-08-31,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:KSHITIJ-RE:2026-09-01,,,,Rights entitlement ticker: genuine price discovery
+add_action,break:LICMFGOLD:2026-03-06,,,100,Unit split 100:1 missing from NSE list (prev close / open = 97.5)
+dismiss_break,break:LLOYDS-RE1:2025-05-26,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:MAHAPE-RE:2026-04-06,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:MAXIND-RE:2025-05-12,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:MAXIND-RE:2025-05-13,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:MBECL:2026-09-01,,,,Trading resumed after 704 days; check symbol was not reused
+add_action,break:MIDCAP:2026-02-27,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.7)
+add_action,break:MIDQ50ADD:2026-07-03,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.9)
+dismiss_break,break:MIRC-RE:2025-07-15,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:MITTAL-RE1:2024-10-15,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:MITTAL-RE1:2024-10-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:MOKSH-RE:2024-12-31,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:MOKSH-RE:2025-01-01,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:NARMA-RE:2024-10-01,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:NARMA-RE:2024-10-03,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:NATCO-RE:2026-10-13,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:NEUEON:2025-12-23,,,,Trading resumed after 463 days; check symbol was not reused
+add_action,break:NV20:2026-02-27,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.4)
+dismiss_break,break:OLAELEC-RE:2026-10-23,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:OLAELEC-RE:2026-10-26,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ONECAP-RE:2026-02-24,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ONECAP-RE:2026-02-25,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ORIENT-RE:2024-09-20,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ORIENT-RE:2024-09-23,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ORIENT-RE:2024-09-24,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ORIENT-RE:2024-09-25,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:PATELEG-RE:2025-12-15,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:PATELEG-RE:2025-12-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:PATINT-RE2:2024-09-25,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:PRABHA-RE:2026-03-23,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:PRABHA-RE:2026-03-24,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:PRAXIS-RE2:2025-08-08,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:PRAXIS-RE2:2025-08-11,,,,Rights entitlement ticker: genuine price discovery
+add_action,break:PSUBANK:2026-07-10,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.8)
+add_action,break:QNIFTY:2026-02-13,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.9)
+dismiss_break,break:RATNA-RE:2026-09-03,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:RELTD-RE:2026-06-18,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:RELTD-RE:2026-06-19,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SADHNA-RE:2026-03-02,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SADHNA-RE:2026-03-04,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SARVES-RE:2025-09-03,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SARVES-RE:2025-09-04,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SARVES-RE:2025-09-10,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SEPC-RE3:2025-06-10,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SEPC-RE3:2025-06-11,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SEPC-RE3:2025-06-12,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SHAH-RE1:2026-06-12,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SHAH-RE1:2026-06-15,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SHAH-RE1:2026-06-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SHANTI-RE:2026-08-17,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SHANTI-RE:2026-08-18,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SHIVAM-RE1:2026-10-29,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SHIVAM-RE1:2026-10-30,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SICAL-RE:2026-03-02,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SICAL-RE:2026-03-04,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SICAL-RE:2026-03-05,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SIKKO-RE:2024-12-24,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SIKKO-RE:2024-12-26,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SIKKO-RE:2024-12-27,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SIKKO-RE:2024-12-30,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SIKKO-RE:2024-12-31,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SIKKO-RE:2025-01-01,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SILGO-RE1:2026-01-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SILGO-RE1:2026-01-22,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SILGO-RE1:2026-01-23,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SILGO-RE1:2026-01-27,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SILGO-RE1:2026-01-28,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SILGO-RE1:2026-01-30,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SILGO-RE1:2026-02-02,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SILGO-RE1:2026-02-05,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SILGO-RE1:2026-02-06,,,,Rights entitlement ticker: genuine price discovery
+add_action,break:SILVER1:2026-02-27,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.3)
+add_action,break:SILVERADD:2026-08-28,,,10,Unit split 10:1 missing from NSE list (prev close / open = 9.5)
+dismiss_break,break:SPAND-RE:2025-08-04,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:STALL-RE:2026-02-23,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SUMEET-RE:2026-06-23,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SUMEET-RE:2026-06-24,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:SUMEETINDS:2025-06-19,,,,Trading resumed after 245 days; check symbol was not reused
+dismiss_break,break:TAKE:2025-06-23,,,,Trading resumed after 151 days; check symbol was not reused
+dismiss_break,break:THANG-RE:2025-02-24,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:THANG-RE:2025-02-25,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:TIL-RE1:2026-04-01,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:TTL-RE:2025-07-18,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:TTL-RE:2025-07-21,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:TTL-RE:2025-07-23,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:UGRO-RE:2025-06-17,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:UGRO-RE:2025-06-18,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:UTKAR-RE:2025-10-27,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VALIANT-RE:2025-07-30,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VARDM-RE:2024-09-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VARDM-RE:2024-09-24,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VHLTD-RE:2024-12-13,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VHLTD-RE:2024-12-16,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VHLTD-RE1:2026-09-04,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VHLTD-RE1:2026-09-07,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VINEET-RE:2026-01-02,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VINEET-RE:2026-01-05,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:VINNY-RE:2024-09-03,,,,Rights entitlement ticker: genuine price discovery
+dismiss_break,break:ADANIENT:2024-11-21,,,,Genuine price move
+dismiss_break,break:ADANIGREEN:2024-11-29,,,,Genuine price move
+dismiss_break,break:AXISILVER:2026-01-30,,,,Genuine price move
+dismiss_break,break:AXISILVER:2026-02-02,,,,Genuine price move
+dismiss_break,break:CYIENT:2025-01-24,,,,Genuine price move
+dismiss_break,break:DELPHIFX:2024-11-18,,,,Genuine price move
+dismiss_break,break:DIL:2024-11-27,,,,Genuine price move
+dismiss_break,break:EIMCOELECO:2025-04-15,,,,Genuine price move
+dismiss_break,break:ESILVER:2026-02-02,,,,Genuine price move
+dismiss_break,break:GROWWSLVR:2026-02-02,,,,Genuine price move
+dismiss_break,break:HDFCSILVER:2026-02-02,,,,Genuine price move
+dismiss_break,break:IEX:2025-07-24,,,,Genuine price move
+dismiss_break,break:INDUSINDBK:2025-03-11,,,,Genuine price move
+dismiss_break,break:KAMOPAINTS:2024-09-30,,,,Genuine price move
+dismiss_break,break:KAYNES:2026-05-14,,,,Genuine price move
+dismiss_break,break:KEI:2025-02-27,,,,Genuine price move
+dismiss_break,break:MCLOUD:2025-11-26,,,,Genuine price move
+dismiss_break,break:MEDICO:2025-02-27,,,,Genuine price move
+dismiss_break,break:MOSILVER:2026-02-02,,,,Genuine price move
+dismiss_break,break:MUFTI:2025-08-01,,,,Genuine price move
+dismiss_break,break:NECLIFE:2025-07-08,,,,Genuine price move
+dismiss_break,break:ONELIFECAP:2025-02-18,,,,Genuine price move
+dismiss_break,break:PGEL:2025-08-08,,,,Genuine price move
+dismiss_break,break:PSB:2025-04-01,,,,Genuine price move
+dismiss_break,break:RESPONIND:2025-04-07,,,,Genuine price move
+dismiss_break,break:SBGLP:2025-02-17,,,,Genuine price move
+dismiss_break,break:SBGLP:2025-02-18,,,,Genuine price move
+dismiss_break,break:SBISILVER:2026-01-30,,,,Genuine price move
+dismiss_break,break:SBISILVER:2026-02-02,,,,Genuine price move
+dismiss_break,break:SIKKO:2025-02-13,,,,Genuine price move
+dismiss_break,break:SILVER:2026-02-02,,,,Genuine price move
+dismiss_break,break:SILVER1:2026-02-02,,,,Genuine price move
+dismiss_break,break:SILVER1:2026-03-23,,,,Genuine price move
+dismiss_break,break:SILVER360:2026-02-02,,,,Genuine price move
+dismiss_break,break:SILVERADD:2026-02-02,,,,Genuine price move
+dismiss_break,break:SILVERAG:2026-02-02,,,,Genuine price move
+dismiss_break,break:SILVERBEES:2026-02-02,,,,Genuine price move
+dismiss_break,break:SILVERBETA:2026-02-02,,,,Genuine price move
+dismiss_break,break:SILVERBND:2026-02-02,,,,Genuine price move
+dismiss_break,break:SILVERCASE:2026-02-02,,,,Genuine price move
+dismiss_break,break:SILVERIETF:2026-01-30,,,,Genuine price move
+dismiss_break,break:SILVERIETF:2026-02-02,,,,Genuine price move
+dismiss_break,break:SPCENET:2025-01-03,,,,Genuine price move
+dismiss_break,break:SPCENET:2025-01-06,,,,Genuine price move
+dismiss_break,break:TATSILV:2026-02-02,,,,Genuine price move
+dismiss_break,break:ZIMLAB:2025-08-04,,,,Genuine price move
+confirm_demerger,demerger:ABFRL:2025-05-22,,,,accept estimate 2.7444 (prev close / ex-date open)
+confirm_demerger,demerger:ALLCARGO:2025-11-12,,,,accept estimate 3.1953 (prev close / ex-date open)
+confirm_demerger,demerger:BHAGYANGR:2026-10-08,,,,accept estimate; -91% drop
+confirm_demerger,demerger:CHEMBOND:2025-05-09,,,,accept estimate 1.8948 (prev close / ex-date open)
+confirm_demerger,demerger:CPCAP:2025-05-09,,,,accept estimate 1.5203 (prev close / ex-date open)
+confirm_demerger,demerger:DCMSRIND:2025-12-26,,,,accept estimate 3.3757 (prev close / ex-date open)
+confirm_demerger,demerger:HEGAM:2026-09-07,,,,accept estimate 2.8010 (prev close / ex-date open)
+confirm_demerger,demerger:HERCULES:2024-10-11,,,,accept estimate 3.5732 (prev close / ex-date open)
+confirm_demerger,demerger:INDIAGLYCO:2026-09-02,,,,accept estimate 4.9409 (prev close / ex-date open)
+confirm_demerger,demerger:KESORAMIND:2025-03-10,,,,accept estimate; -95% drop
+confirm_demerger,demerger:QUESS:2025-04-15,,,,accept estimate 2.1299 (prev close / ex-date open)
+confirm_demerger,demerger:RAYMOND:2025-05-14,,,,accept estimate 2.9796 (prev close / ex-date open)
+confirm_demerger,demerger:ROSSELLIND:2024-09-20,,,,accept estimate 3.4575 (prev close / ex-date open)
+confirm_demerger,demerger:SHANKARA:2025-09-24,,,,accept estimate 3.8843 (prev close / ex-date open)
+confirm_demerger,demerger:SIEMENS:2025-04-07,,,,accept estimate 2.0115 (prev close / ex-date open)
+confirm_demerger,demerger:SKFINDIA:2025-10-15,,,,accept estimate 2.1776 (prev close / ex-date open)
+confirm_demerger,demerger:STAR:2024-12-06,,,,accept estimate 2.2845 (prev close / ex-date open)
+confirm_demerger,demerger:STLTECH:2025-04-24,,,,accept estimate 1.4232 (prev close / ex-date open)
+confirm_demerger,demerger:TMPV:2025-10-14,,,,accept estimate 1.6519 (prev close / ex-date open)
+confirm_demerger,demerger:TRIVENI:2026-07-22,,,,accept estimate 1.6261 (prev close / ex-date open)
+confirm_demerger,demerger:VEDL:2026-04-30,,,,accept estimate 2.6722 (prev close / ex-date open)
+confirm_demerger,demerger:VERANDA:2026-10-06,,,,accept estimate; -87% drop
+dismiss_break,break:BIOFILCHEM:2026-02-02,,,,"Genuine move, no listed action"
+dismiss_break,break:BSLNIFTY:2025-03-04,,,,"Bad opening print, close flat"
+add_action,break:CCAVENUE:2026-10-19,,,1/10,"Missing 1:10 consolidation: price x10, volume /30 after a week gap"
+dismiss_break,break:EGOLD:2025-12-31,,,,"Bad opening print, close flat"
+dismiss_break,break:ENERGY:2026-02-27,,,,"Bad opening print, close flat"
+dismiss_break,break:HEALTHIETF:2024-10-14,,,,"Bad opening print, close flat"
+dismiss_break,break:MANBA:2024-12-26,,,,"Bad opening print, close flat"
+dismiss_break,break:MANUFGBEES:2026-04-01,,,,"Bad opening print, close flat"
+dismiss_break,break:MASKINVEST:2024-10-28,,,,"Genuine move, no listed action"
+dismiss_break,break:POLICYBZR:2026-09-24,,,,"Genuine move, no listed action"
+dismiss_break,break:SERVOTECH:2026-02-02,,,,"Genuine move, no listed action"
+dismiss_break,break:SETCO:2026-06-02,,,,Rs 13 interim dividend on a Rs 28.62 stock
+dismiss_break,break:TATAGOLD:2025-12-23,,,,"Bad opening print, close flat"
+dismiss_break,break:UFBL:2026-02-02,,,,"Genuine move, no listed action"
+dismiss_break,break:WANBURY:2025-01-27,,,,Resumed after 25 day gap
+confirm_demerger,demerger:ITC:2025-01-06,,,,accept estimate 1.0571; ITC Hotels demerger; drop persists
+confirm_demerger,demerger:DBREALTY:2025-07-18,,,,accept estimate 1.1533; drop persists
+confirm_demerger,demerger:GUJENERGY:2026-07-02,,,,accept estimate 1.1724; drop persists
+confirm_demerger,demerger:KMSUGAR:2026-10-01,,,,accept estimate 1.2428; drop persists
+confirm_demerger,demerger:KHADIM:2025-06-06,,,,"accept estimate 1.2166; uncertain, price rebounded after"
+reject_action,,CCAVENUE,2024-09-11,,Estimate 1.0493 within normal price moves
+reject_action,,HINDUNILVR,2025-12-05,,Estimated factor ~1.00x: treat as a normal price move
+reject_action,,GENUSPOWER,2026-02-06,,Estimated factor ~1.00x: treat as a normal price move
+reject_action,,INOXGREEN,2026-07-31,,Estimated factor ~1.00x: treat as a normal price move
+reject_action,,DALMIASUG,2025-10-31,,Estimated factor ~1.00x: treat as a normal price move
+reject_action,,NARMADA,2024-09-13,,Rights TERP factor ~1.59 overshoots real drop; replaced by observed factor
+add_action,,NARMADA,2024-09-13,1.27,Observed prev close 24.08 / open 18.95
