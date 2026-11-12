@@ -44,7 +44,7 @@ export default function Company({ loaderData }: Route.ComponentProps) {
         ))}
       </nav>
       {bars.length === 0 ? <p>No prices in this range.</p> : <PriceChart bars={bars} />}
-      <p className={styles.note}>Adjusted close, on today's share basis.</p>
+      <p className={styles.note}>Adjusted close and volume, on today's share basis.</p>
     </main>
   );
 }

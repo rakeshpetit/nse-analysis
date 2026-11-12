@@ -117,14 +117,7 @@ export async function companyPrices(db: Db, symbol: string, range: Range): Promi
   const securityId = found[0]?.security_id;
   if (securityId === undefined) return null;
 
-  const { rows } = await db.query<{
-    date: string;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    volume: number;
-  }>(
+  const { rows } = await db.query<PriceBar>(
     `SELECT trade_date::text AS date, open::float8 AS open, high::float8 AS high,
             low::float8 AS low, close::float8 AS close, traded_qty::float8 AS volume
      FROM adjusted.daily_bar
