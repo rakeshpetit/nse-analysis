@@ -9,6 +9,7 @@
     "load": "tsx src/cli.ts load",
     "build": "tsx src/cli.ts build",
     "review": "tsx src/cli.ts review",
+    "daily": "tsx src/cli.ts daily",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

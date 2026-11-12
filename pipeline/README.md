@@ -23,6 +23,7 @@ Run from `pipeline/`:
 | `yarn load`    | Raw Files dated on/after the start date (2024-09-01) → `staged.bhavcopy_row`. Safe to re-run.      |
 | `yarn build`   | `staged.bhavcopy_row` → `core.security` and its symbol history, then `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
 | `yarn review`  | Lists every open review item from the last `build` (see "Review queue"). Read-only.                |
+| `yarn daily`   | `fetch` → `load` → `build` → `review`, then a short summary (see "Daily run"). Run `yarn migrate` first. |
 | `yarn test`    | vitest. Needs a local Postgres; each test file creates and drops its own database.                 |
 | `yarn typecheck` |                                                                                                  |
 
@@ -31,6 +32,47 @@ Run from `pipeline/`:
 `REVIEW_DIR` overrides the Review Decisions location (default: `../review`).
 `TEST_ADMIN_URL` overrides the database used to create test databases
 (default `postgres://localhost/postgres`).
+
+## Daily run
+
+`yarn daily` is the one command for the day:
+
+1. **fetch** brings Raw Files and Reference Snapshots up to date. `fetch` is not built yet (#0011), so
+   for now this step only prints a notice: put new Raw Files under `files/` and snapshots under
+   `reference/` by hand.
+2. **load** stages the Raw Files, **build** rebuilds every derived table, **review** counts the open items.
+
+It ends with a summary:
+
+```
+Daily summary:
+  3 new Trading Day(s) loaded
+  12 Corporate Action ex-date(s) applied
+  0 text(s) waiting for /interpret-corporate-actions
+  4 open review item(s)
+Run `yarn review` to see the open items, ...
+```
+
+"Corporate Action ex-dates applied" counts Security and ex-date pairs that have an Adjustment Factor
+(several actions on one ex-date are one). With no snapshot under `reference/corporate-actions/` it is 0.
+
+Every step is safe to re-run: `load` re-stages each file, and `build` derives everything from scratch,
+so a second `daily` leaves the database unchanged. The database holds nothing that is not in
+`files/`, `reference/` and `review/`: to start over, `dropdb nse_pipeline && createdb nse_pipeline &&
+yarn migrate && yarn daily` gives the same Adjusted layer. Scheduling it (launchd/cron) is up to you.
+If a step fails (e.g. Raw Files disagree on a Trading Day), `daily` stops there with its error and the
+later steps do not run.
+
+### The review loop
+
+After `daily`, the summary says what needs you:
+
+- **Texts waiting for interpretation**: run `/interpret-corporate-actions` in Claude Code, read the diff
+  of `reference/action-interpretations.csv`, commit it.
+- **Open review items**: run `yarn review`, decide each item and add a row to `review/decisions.csv`
+  (see "Review Decisions"), commit it.
+
+Then run `yarn daily` again. The cycle ends when the summary says nothing needs your attention.
 
 ## Raw File layout
 

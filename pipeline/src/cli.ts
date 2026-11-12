@@ -1,6 +1,7 @@
 import path from "node:path";
 import { PENDING_FILE } from "./adjustments";
 import { build } from "./build";
+import { daily, formatSummary } from "./daily";
 import { DECISIONS_FILE } from "./decisions";
 import { FILES_DIR, MIGRATIONS_DIR, REFERENCE_DIR, REVIEW_DIR, START_DATE } from "./config";
 import type { Db } from "./db";
@@ -43,6 +44,17 @@ const commands = {
       }
     }
   },
+  async daily(db: Db) {
+    // `fetch` does not exist yet (#0011): until it does, daily works from what is on disk.
+    console.log("fetch: not available yet (#0011), using the Raw Files and Reference Snapshots on disk");
+    const summary = await daily(db, {
+      filesDir: FILES_DIR,
+      referenceDir: REFERENCE_DIR,
+      reviewDir: REVIEW_DIR,
+      startDate: START_DATE,
+    });
+    console.log(formatSummary(summary));
+  },
   async review(db: Db) {
     const items = await review(db, { startDate: START_DATE, referenceDir: REFERENCE_DIR, reviewDir: REVIEW_DIR });
     if (items.length === 0) {
@@ -67,7 +79,7 @@ const commands = {
 
 const name = process.argv[2];
 if (name === undefined || !(name in commands)) {
-  console.error("Usage: cli <migrate|load|build|review>");
+  console.error("Usage: cli <migrate|load|build|review|daily>");
   process.exit(1);
 }
 
