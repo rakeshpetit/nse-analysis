@@ -1,0 +1,2 @@
+CREATE SCHEMA staged;
+CREATE SCHEMA core;
