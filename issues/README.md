@@ -23,3 +23,6 @@ Vocabulary: [GLOSSARY.md](../GLOSSARY.md). Decisions: [docs/adr/](../docs/adr/).
 | 0011 | [`fetch` command](0011-fetch-command.md)                               | AFK  | 0002                         |
 | 0012 | [`daily` command](0012-daily-command.md)                               | AFK  | 0003, 0005, 0007, 0010, 0011 |
 | 0013 | [First full review pass](0013-first-full-review-pass.md)               | HITL | 0005, 0008, 0009, 0012       |
+| 0014 | [Rights-entitlement tickers flood the review queue](0014-rights-entitlement-tickers.md) | AFK  | 0013                         |
+| 0015 | [Suspected Breaks after long trading gaps](0015-breaks-after-long-gaps.md) | AFK  | 0013                         |
+| 0016 | [ETF unit splits missing from NSE's list](0016-etf-unit-splits-missing.md) | AFK  | 0013                         |
