@@ -187,7 +187,8 @@ they describe the bar as traded.
 from Daily Bars and Adjustment Factors. Nothing ever UPDATEs Daily Bars or Raw
 Files (ADR 0001).
 
-Inputs live under `reference/` (git-tracked, never edited by the pipeline):
+Inputs live under `reference/` (never edited by the pipeline; the snapshots `fetch` saves are
+git-ignored, `action-interpretations.csv` is tracked):
 
 - `symbol-changes/*.csv`: NSE's symbol changes (see "Securities and renames").
 - `corporate-actions/*.json`: verbatim NSE corporate-actions API responses (a JSON

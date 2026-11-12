@@ -1,3 +1,7 @@
 files/
 # written by `build`, regenerated on every run
 pending-interpretations.txt
+# Reference Snapshots saved by `fetch`: re-downloadable, so not committed
+reference/corporate-actions/*.json
+reference/symbol-changes/*.csv
+reference/name-changes/
