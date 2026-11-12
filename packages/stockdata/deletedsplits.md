@@ -35,8 +35,8 @@ SELECT * FROM backup_stock_data where symbol like 'REDTAPE';
 ```sql
 WITH split_info AS (
     SELECT
-        '2025-01-30T00:00:00.000Z'::timestamp AS split_date,
-        2 AS split_ratio
+        '2025-01-07T00:00:00.000Z'::timestamp AS split_date,
+        2.5 AS split_ratio
 )
 
 UPDATE stock_data
@@ -48,7 +48,7 @@ SET
     close = ROUND(close / split_ratio, 2)
 FROM split_info
 WHERE
-    symbol = 'IGL'
+    symbol = 'JAGSNPHARM'
     AND date <= split_info.split_date;
 ```
 

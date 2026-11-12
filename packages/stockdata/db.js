@@ -121,7 +121,7 @@ WITH stock_splits_cte AS (
     SELECT * 
     FROM stock_splits 
     ORDER BY split_date DESC 
-    LIMIT 35
+    LIMIT 15
 ),
 stock_data_cte AS (
     SELECT sd.*, ss.symbol AS split_symbol, ss.split_date
@@ -133,7 +133,7 @@ stock_data_cte AS (
 )
 SELECT * 
 FROM stock_data_cte
--- where split_symbol like 'IGL'
+-- where split_symbol like 'GARFIBRES'
 ORDER BY split_date DESC, date;
 `;
 async function fetchRows() {
@@ -141,7 +141,7 @@ async function fetchRows() {
     await client.connect();
     console.log("Connected to PostgreSQL");
 
-    const result = await client.query(stockDataQuery);
+    const result = await client.query(uniqueStocksQuery);
     console.log("Rows in the database:");
     console.table(result.rows);
   } catch (err) {
