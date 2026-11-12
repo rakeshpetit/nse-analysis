@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
-import type { Db } from "./db";
+import { withTransaction, type Db } from "./db";
 
 export interface LoadOptions {
   filesDir: string;
@@ -84,22 +84,14 @@ async function stageFile(db: Db, filesDir: string, relPath: string): Promise<num
   ];
   const casts = ["text[]", "int[]", ...COLUMNS.map(() => "text[]")];
 
-  const client = await db.connect();
-  try {
-    await client.query("BEGIN");
+  await withTransaction(db, async (client) => {
     await client.query("DELETE FROM staged.bhavcopy_row WHERE source_file = $1", [relPath]);
     await client.query(
       `INSERT INTO staged.bhavcopy_row (source_file, line_number, ${COLUMNS.join(", ")})
        SELECT * FROM unnest(${casts.map((c, i) => `$${i + 1}::${c}`).join(", ")})`,
       columns,
     );
-    await client.query("COMMIT");
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
   return rows.length;
 }
 

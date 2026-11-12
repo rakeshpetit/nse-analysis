@@ -7,3 +7,7 @@
 - No ISIN is available, because `sec_bhavdata_full` doesn't carry it. Security identity relies on symbol plus NSE's `symbolchange.csv`.
 - Only Corporate Actions with ex-dates in the window affect any bar.
 - Extending backwards later means moving the configured start date and adding a loader for each older layout. NSE still serves `sec_bhavdata_full` back to 2020, which could replace the messy files if that's needed.
+
+## Update
+
+The files on disk from September 2024 are not NSE's `sec_bhavdata_full` layout. They are the 15-column layout written by `packages/stockdata/fetchBhavcopy.js` (`SYMBOL, SERIES, DATE1, …, DELIV_PER`). The pipeline's loader reads that layout and rejects any other header. The scope and consequences above still hold.

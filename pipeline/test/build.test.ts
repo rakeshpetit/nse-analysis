@@ -3,10 +3,11 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { build } from "../src/build";
 import { load } from "../src/load";
+import { START_DATE } from "../src/config";
 import { createTestDb, type TestDb } from "./testDb";
 
-const filesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/files");
-const startDate = "2024-09-01";
+const filesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/raw");
+const startDate = START_DATE;
 
 let t: TestDb;
 beforeAll(async () => {

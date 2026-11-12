@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { Db } from "./db";
+import { withTransaction, type Db } from "./db";
 
 /**
  * Applies plain numbered SQL files (`NNNN_name.sql`) in name order, each in its
@@ -22,17 +22,13 @@ export async function migrate(db: Db, dir: string): Promise<string[]> {
   for (const file of files) {
     if (done.has(file)) continue;
     const sql = await fs.readFile(path.join(dir, file), "utf8");
-    const client = await db.connect();
     try {
-      await client.query("BEGIN");
-      await client.query(sql);
-      await client.query("INSERT INTO public.schema_migrations (version) VALUES ($1)", [file]);
-      await client.query("COMMIT");
+      await withTransaction(db, async (client) => {
+        await client.query(sql);
+        await client.query("INSERT INTO public.schema_migrations (version) VALUES ($1)", [file]);
+      });
     } catch (err) {
-      await client.query("ROLLBACK");
       throw new Error(`Migration ${file} failed: ${(err as Error).message}`);
-    } finally {
-      client.release();
     }
     applied.push(file);
   }
