@@ -6,12 +6,15 @@ import {
   type RejectedInterpretation,
   type SkippedAction,
 } from "./adjustments";
+import { JUMP_THRESHOLD } from "./config";
 import { withTransaction, type Db } from "./db";
 
 export interface BuildOptions {
   startDate: string;
   /** Directory holding `corporate-actions/*.json` and `action-interpretations.csv`. Without it nothing is adjusted. */
   referenceDir?: string;
+  /** Move (as a fraction) beyond which an unexplained price change is a Suspected Break. Defaults to the configured threshold. */
+  jumpThreshold?: number;
 }
 
 export interface BuildResult {
@@ -130,6 +133,93 @@ async function buildAdjusted(client: pg.PoolClient, plan: AdjustmentPlan): Promi
   await client.query(ADJUST_BARS);
 }
 
+/** Needs Adjustment Factors, so runs after the Adjusted layer is built. */
+async function flagPrevClose(client: pg.PoolClient): Promise<void> {
+  await client.query(FLAG_PREV_CLOSE);
+}
+
+async function buildReviewLeads(client: pg.PoolClient, jumpThreshold: number): Promise<void> {
+  await client.query("TRUNCATE adjusted.suspected_break");
+  await client.query(SUSPECTED_BREAKS, [jumpThreshold]);
+  await client.query("TRUNCATE adjusted.action_without_jump");
+  await client.query(ACTIONS_WITHOUT_JUMP, [jumpThreshold]);
+}
+
+/**
+ * Suspected Breaks: Adjusted Prices already carry every applied Adjustment
+ * Factor, so a move still bigger than the threshold (open or close against the
+ * previous Daily Bar's close, up or down) is one no applied action explains.
+ */
+const SUSPECTED_BREAKS = `
+  INSERT INTO adjusted.suspected_break
+    (symbol, trade_date, prev_trade_date, prev_close, open, close, open_change, close_change)
+  SELECT symbol, trade_date, prev_trade_date, prev_close, open, close,
+         open / prev_close - 1, close / prev_close - 1
+  FROM (
+    SELECT symbol, trade_date, open, close,
+           lag(trade_date) OVER w AS prev_trade_date,
+           lag(close) OVER w AS prev_close
+    FROM adjusted.daily_bar
+    WINDOW w AS (PARTITION BY symbol ORDER BY trade_date)
+  ) pairs
+  WHERE prev_close > 0
+    AND (abs(open / prev_close - 1) > $1 OR abs(close / prev_close - 1) > $1)`;
+
+/**
+ * Applied actions with no visible jump. Compares the last unadjusted bar before
+ * the ex-date with the first bar on or after it. The jump is visible when the
+ * ratio of the previous close to the open, or to the close, is within the
+ * threshold (as a fraction of the factor) of the factor. Actions with no bar on
+ * either side have nothing to compare and are not reported.
+ */
+const ACTIONS_WITHOUT_JUMP = `
+  INSERT INTO adjusted.action_without_jump
+    (symbol, ex_date, factor, prev_trade_date, prev_close, trade_date, open, close)
+  SELECT symbol, ex_date, factor, prev_trade_date, prev_close, trade_date, open, close
+  FROM (
+    SELECT a.symbol, a.ex_date, a.factor,
+           p.trade_date AS prev_trade_date, p.close AS prev_close,
+           n.trade_date, n.open, n.close
+    FROM adjusted.adjustment_factor a
+    CROSS JOIN LATERAL (
+      SELECT trade_date, close FROM core.daily_bar b
+      WHERE b.symbol = a.symbol AND b.trade_date < a.ex_date
+      ORDER BY b.trade_date DESC LIMIT 1
+    ) p
+    CROSS JOIN LATERAL (
+      SELECT trade_date, open, close FROM core.daily_bar b
+      WHERE b.symbol = a.symbol AND b.trade_date >= a.ex_date
+      ORDER BY b.trade_date LIMIT 1
+    ) n
+    WHERE a.factor_num <> a.factor_den AND p.close > 0
+  ) pairs
+  WHERE NOT coalesce(abs(prev_close / nullif(open, 0) / factor - 1) <= $1, false)
+    AND NOT coalesce(abs(prev_close / nullif(close, 0) / factor - 1) <= $1, false)`;
+
+/**
+ * Quality Flag `prev_close_mismatch`: a bar's prev close should be the previous
+ * Daily Bar's close. NSE never adjusts prev close on ex-dates, so a bar whose
+ * period since the previous bar contains the ex-date of an applied price-changing
+ * action is allowed to differ. Prices are quoted to two decimals, hence the tolerance.
+ */
+const FLAG_PREV_CLOSE = `
+  INSERT INTO core.daily_bar_flag (symbol, trade_date, flag)
+  SELECT symbol, trade_date, 'prev_close_mismatch'
+  FROM (
+    SELECT symbol, trade_date, prev_close,
+           lag(close) OVER w AS previous_close,
+           lag(trade_date) OVER w AS previous_date
+    FROM core.daily_bar
+    WINDOW w AS (PARTITION BY symbol ORDER BY trade_date)
+  ) pairs
+  WHERE previous_close IS NOT NULL
+    AND abs(prev_close - previous_close) > 0.005
+    AND NOT EXISTS (
+      SELECT 1 FROM adjusted.adjustment_factor a
+      WHERE a.symbol = pairs.symbol AND a.factor_num <> a.factor_den
+        AND a.ex_date > pairs.previous_date AND a.ex_date <= pairs.trade_date
+    )`;
+
 const MAX_REPORTED_CONFLICTS = 20;
 
 type Normalised = Record<string, string | number | null>;
@@ -221,6 +311,8 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
     );
     await client.query(FLAG_BARS);
     await buildAdjusted(client, plan);
+    await flagPrevClose(client);
+    await buildReviewLeads(client, opts.jumpThreshold ?? JUMP_THRESHOLD);
     return {
       bars: res.rowCount ?? 0,
       skippedActions: plan.skipped,

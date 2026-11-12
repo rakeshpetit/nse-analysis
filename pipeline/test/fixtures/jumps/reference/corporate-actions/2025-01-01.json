@@ -1,0 +1,58 @@
+[
+  {
+    "symbol": "GOODCO",
+    "comp": "GOODCO",
+    "series": "EQ",
+    "faceVal": "10",
+    "subject": "Bonus 1:1",
+    "exDate": "11-Oct-2024",
+    "recDate": "11-Oct-2024",
+    "bcStartDate": "-",
+    "bcEndDate": "-",
+    "ndStartDate": "-",
+    "ndEndDate": "-",
+    "caBroadcastDate": "-"
+  },
+  {
+    "symbol": "WRONGCO",
+    "comp": "WRONGCO",
+    "series": "EQ",
+    "faceVal": "10",
+    "subject": "Bonus 1:1",
+    "exDate": "11-Oct-2024",
+    "recDate": "11-Oct-2024",
+    "bcStartDate": "-",
+    "bcEndDate": "-",
+    "ndStartDate": "-",
+    "ndEndDate": "-",
+    "caBroadcastDate": "-"
+  },
+  {
+    "symbol": "NOJUMPCO",
+    "comp": "NOJUMPCO",
+    "series": "EQ",
+    "faceVal": "10",
+    "subject": "Bonus 1:1",
+    "exDate": "11-Oct-2024",
+    "recDate": "11-Oct-2024",
+    "bcStartDate": "-",
+    "bcEndDate": "-",
+    "ndStartDate": "-",
+    "ndEndDate": "-",
+    "caBroadcastDate": "-"
+  },
+  {
+    "symbol": "ADJPREV",
+    "comp": "ADJPREV",
+    "series": "EQ",
+    "faceVal": "10",
+    "subject": "Bonus 1:1",
+    "exDate": "11-Oct-2024",
+    "recDate": "11-Oct-2024",
+    "bcStartDate": "-",
+    "bcEndDate": "-",
+    "ndStartDate": "-",
+    "ndEndDate": "-",
+    "caBroadcastDate": "-"
+  }
+]

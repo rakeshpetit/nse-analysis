@@ -22,6 +22,7 @@ Run from `pipeline/`:
 | `yarn migrate` | Applies `migrations/NNNN_*.sql` in order; already-applied files are skipped.                       |
 | `yarn load`    | Raw Files dated on/after the start date (2024-09-01) → `staged.bhavcopy_row`. Safe to re-run.      |
 | `yarn build`   | `staged.bhavcopy_row` → `core.daily_bar` (EQ/BE only, typed, unadjusted) plus `core.daily_bar_flag` (Quality Flags), then `adjusted.*` from Daily Bars and Corporate Actions. All rebuilt from scratch. Fails if Raw Files disagree on a Trading Day; lists Corporate Actions it had to skip. |
+| `yarn review`  | Lists every open review item from the last `build` (see "Review queue"). Read-only.                |
 | `yarn test`    | vitest. Needs a local Postgres; each test file creates and drops its own database.                 |
 | `yarn typecheck` |                                                                                                  |
 
@@ -70,9 +71,12 @@ never corrected; analyses choose whether to exclude them.
 SELECT * FROM core.quality_flag_count;   -- bars per flag name, across all bars
 ```
 
-Prev-close continuity needs Corporate Actions to rule out legitimate breaks, so
-it lives with jump matching (#0006). `adjusted.daily_bar_flag` is a view of the
-same flags, since they describe the bar as traded.
+`prev_close_mismatch` is raised in the later step of `build`, once Adjustment Factors are
+known: a bar whose prev close is not the previous Daily Bar's close (more than 0.005 apart).
+NSE never adjusts prev close on ex-dates, so a bar whose gap from the previous bar contains
+the ex-date of an applied, price-changing action is allowed to differ. The first bar of a
+Security is never flagged. `adjusted.daily_bar_flag` is a view of the same flags, since
+they describe the bar as traded.
 
 ## Adjusted layer
 
@@ -120,12 +124,34 @@ Claude Code: it appends one row per description (fields and an example per type 
 face/issue values, the fields that type requires (bonus: `ratio`; split/consolidation:
 both face values, lowered/raised respectively; rights: `ratio` and `issue_price`).
 A row with the wrong shape is not applied, is printed as `Rejected ... Action
-Interpretation(s)`, and is returned as `rejectedInterpretations` for the review queue (#0006).
+Interpretation(s)`, and is returned as `rejectedInterpretations` and listed by `yarn review`.
 
 ```sql
 SELECT trade_date, close, factor FROM adjusted.daily_bar WHERE symbol = 'RELIANCE' ORDER BY trade_date;
 SELECT * FROM adjusted.adjustment_factor ORDER BY symbol, ex_date;
 ```
+
+## Review queue
+
+`build` also looks for leads to review, in `adjusted.suspected_break` and
+`adjusted.action_without_jump`; `yarn review` prints them with the other open items.
+Nothing here changes prices; Review Decisions (#0007) are how a person rules on an item.
+
+- **Suspected Break**: after applying every Adjustment Factor, the open or close is more than
+  the jump threshold (20% by default, up or down; `JUMP_THRESHOLD` env, `build`'s `jumpThreshold`
+  option, or `JUMP_THRESHOLD` in `src/config.ts`) away from the previous Daily Bar's close.
+  Reported on the later day.
+- **Action with no visible jump**: an applied action that changes prices (factor other than 1)
+  where, on unadjusted bars, the first bar on/after the ex-date shows no jump of about that
+  factor: neither (previous close ÷ open) nor (previous close ÷ close) is within the jump
+  threshold (20%) of the factor, relative to the factor. Small factors therefore pass easily.
+  Actions with no bar on one side of the ex-date are not reported.
+- **No interpretation** / **rejected interpretation**: from #0005.
+
+Each item has an ID built only from what it is about, so it survives rebuilds:
+`break:SYMBOL:DATE`, `no-jump:SYMBOL:EX_DATE`, `no-interpretation:<hash>` and
+`rejected-interpretation:<hash>` (first 10 hex of the SHA-1 of the exact description).
+Each shows the unadjusted and adjusted prices two bars before and after the date.
 
 ## Queries
 

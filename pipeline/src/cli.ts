@@ -6,6 +6,7 @@ import type { Db } from "./db";
 import { connect } from "./db";
 import { load } from "./load";
 import { migrate } from "./migrate";
+import { review } from "./review";
 
 const commands = {
   async migrate(db: Db) {
@@ -39,11 +40,31 @@ const commands = {
       }
     }
   },
+  async review(db: Db) {
+    const items = await review(db, { startDate: START_DATE, referenceDir: REFERENCE_DIR });
+    if (items.length === 0) {
+      console.log("Nothing to review");
+      return;
+    }
+    console.log(`${items.length} open item(s):`);
+    for (const item of items) {
+      console.log(`\n[${item.id}] ${item.summary}`);
+      for (const line of item.detail) console.log(`  ${line}`);
+      if (item.prices && item.prices.length > 0) {
+        console.log("  date        open        close   adj. close");
+        for (const p of item.prices) {
+          const mark = p.tradeDate === item.date ? "*" : " ";
+          const num = (v: string) => Number(v).toFixed(2).padStart(10);
+          console.log(` ${mark}${p.tradeDate} ${num(p.open)} ${num(p.close)} ${num(p.adjustedClose)}`);
+        }
+      }
+    }
+  },
 };
 
 const name = process.argv[2];
 if (name === undefined || !(name in commands)) {
-  console.error("Usage: cli <migrate|load|build>");
+  console.error("Usage: cli <migrate|load|build|review>");
   process.exit(1);
 }
 

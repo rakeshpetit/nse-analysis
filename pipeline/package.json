@@ -8,6 +8,7 @@
     "migrate": "tsx src/cli.ts migrate",
     "load": "tsx src/cli.ts load",
     "build": "tsx src/cli.ts build",
+    "review": "tsx src/cli.ts review",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
