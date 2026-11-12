@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
-import { planAdjustments, priorCloseFrom, type AdjustmentPlan } from "./adjustments";
+import { barsAroundFrom, planAdjustments, type AdjustmentPlan } from "./adjustments";
 import { loadDecisions } from "./decisions";
 import type { Db } from "./db";
 
 export type ReviewKind =
   | "suspected_break"
   | "action_without_jump"
+  | "demerger_estimate"
   | "no_interpretation"
   | "rejected_interpretation";
 
@@ -25,7 +26,7 @@ export interface ReviewItem {
   summary: string;
   detail: string[];
   symbol?: string;
-  /** Suspected Break: the day of the jump. Action with no visible jump: its ex-date. */
+  /** Suspected Break: the day of the jump. Action with no visible jump, or demerger estimate: its ex-date. */
   date?: string;
   /** Interpretation items: the exact Corporate Action description. */
   description?: string;
@@ -90,9 +91,38 @@ function interpretationItems(plan: AdjustmentPlan): ReviewItem[] {
   return [...missing, ...rejected];
 }
 
+/** The price of a bar as shown to a person. */
+const price = (text: string) => Number(text).toFixed(2);
+
+async function demergerItems(db: Db, plan: AdjustmentPlan): Promise<ReviewItem[]> {
+  const items: ReviewItem[] = [];
+  for (const d of plan.pendingDemergers) {
+    const confirm = `confirm with "confirm_demerger,demerger:${d.symbol}:${d.exDate},,,<factor>,<note>" (leave factor blank to accept the estimate)`;
+    const head = `${d.symbol} demerger going ex on ${d.exDate}`;
+    const estimated = d.estimate && d.prev && d.next;
+    items.push({
+      id: `demerger:${d.symbol}:${d.exDate}`,
+      kind: "demerger_estimate",
+      summary: estimated
+        ? `${head}: estimated factor ${(Number(d.estimate!.num) / Number(d.estimate!.den)).toFixed(4)}, not applied until confirmed`
+        : `${head}: no estimate (no Daily Bar on both sides of the ex-date), not applied until confirmed`,
+      detail: [
+        estimated
+          ? `Estimate: close ${price(d.prev!.close)} on ${d.prev!.tradeDate} ÷ open ${price(d.next!.open)} on ${d.next!.tradeDate}`
+          : "Estimate: previous close ÷ ex-date open, which needs a Daily Bar before and on or after the ex-date",
+        confirm,
+      ],
+      symbol: d.symbol,
+      date: d.exDate,
+      prices: await pricesAround(db, d.symbol, d.exDate),
+    });
+  }
+  return items;
+}
+
 /**
  * Every open item for a human, from the latest `build`: Suspected Breaks, actions
- * with no visible jump, descriptions with no Action Interpretation and
+ * with no visible jump, demergers awaiting confirmation, descriptions with no Action Interpretation and
  * interpretations rejected for shape. IDs depend only on what the item is about
  * (symbol and date, or description text), so they survive rebuilds.
  */
@@ -153,6 +183,7 @@ export async function review(db: Db, opts: ReviewOptions): Promise<ReviewItem[]>
       prices: await pricesAround(db, a.symbol, a.ex_date),
     });
   }
-  items.push(...interpretationItems(await planAdjustments(opts.referenceDir, opts.startDate, await loadDecisions(opts.reviewDir), priorCloseFrom(db))));
+  const plan = await planAdjustments(opts.referenceDir, opts.startDate, await loadDecisions(opts.reviewDir), barsAroundFrom(db));
+  items.push(...(await demergerItems(db, plan)), ...interpretationItems(plan));
   return items;
 }

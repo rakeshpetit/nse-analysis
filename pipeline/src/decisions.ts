@@ -34,8 +34,17 @@ export interface AddAction extends DecisionTarget {
   factor: Fraction;
 }
 
+/**
+ * Apply a demerger NSE lists with no ratio, going ex on `date`. Without `factor` the
+ * estimate (previous close ÷ ex-date open) is accepted; with one, that factor is used.
+ */
+export interface ConfirmDemerger extends DecisionTarget {
+  kind: "confirm_demerger";
+  factor?: Fraction;
+}
+
 /** A Review Decision: a human ruling on a flagged case (ADR 0001). */
-export type Decision = DismissBreak | RejectAction | AddAction;
+export type Decision = DismissBreak | RejectAction | AddAction | ConfirmDemerger;
 
 /** File contents, or undefined if it does not exist. */
 async function readIfExists(file: string): Promise<string | undefined> {
@@ -75,9 +84,16 @@ function parseRow(r: Record<string, string>, where: string): Decision {
       return { kind: "reject_action", ...target(r, where, "no-jump"), where };
     case "add_action":
       return { kind: "add_action", ...target(r, where, "break"), factor: factorOf(r.factor!, where), where };
+    case "confirm_demerger":
+      return {
+        kind: "confirm_demerger",
+        ...target(r, where, "demerger"),
+        ...(r.factor !== "" && { factor: factorOf(r.factor!, where) }),
+        where,
+      };
     default:
       throw new Error(
-        `${where}: unknown decision "${r.decision}" (expected add_action, reject_action or dismiss_break)`,
+        `${where}: unknown decision "${r.decision}" (expected add_action, reject_action, dismiss_break or confirm_demerger)`,
       );
   }
 }
@@ -106,7 +122,7 @@ function isIsoDate(text: string): boolean {
  * The Security and date a row is about: either a review item ID of the kind the
  * decision rules on, or the symbol and date named directly (not both).
  */
-function target(r: Record<string, string>, where: string, itemKind: "break" | "no-jump"): { symbol: string; date: string } {
+function target(r: Record<string, string>, where: string, itemKind: "break" | "no-jump" | "demerger"): { symbol: string; date: string } {
   const [item, symbol, date] = [r.item!, r.symbol!, r.date!];
   let found: { symbol: string; date: string };
   if (item !== "") {

@@ -1,5 +1,5 @@
 ---
-status: ready
+status: done
 type: AFK
 blocked_by: ["0007"]
 ---
@@ -12,10 +12,10 @@ NSE publishes demergers with no ratio. For each in-window demerger, the pipeline
 
 ## Acceptance criteria
 
-- [ ] Each in-window demerger appears in `pipeline review` with its estimated factor and the surrounding prices
-- [ ] An unconfirmed demerger is never applied
-- [ ] A confirming Review Decision, whether it accepts the estimate or gives an explicit factor, is applied on the next build
-- [ ] There's a fixture test for one real demerger in the window
+- [x] Each in-window demerger appears in `pipeline review` with its estimated factor and the surrounding prices
+- [x] An unconfirmed demerger is never applied
+- [x] A confirming Review Decision, whether it accepts the estimate or gives an explicit factor, is applied on the next build
+- [x] There's a fixture test for one real demerger in the window
 
 ## Blocked by
 

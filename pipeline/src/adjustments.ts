@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
 import type pg from "pg";
-import type { Decision } from "./decisions";
+import type { ConfirmDemerger, Decision } from "./decisions";
 
 /** A Corporate Action as listed in a Reference Snapshot. */
 interface CorporateAction {
@@ -44,22 +44,37 @@ interface Resolved {
   jump: Fraction;
 }
 
-/**
- * The close of a Security's last Daily Bar before an ex-date, as numeric text,
- * or undefined when it has none. A rights issue's factor depends on it.
- */
-export type PriorClose = (symbol: string, exDate: string) => Promise<string | undefined>;
+/** The Daily Bars either side of an ex-date, as numeric text. */
+export interface ExDateBars {
+  /** The last Daily Bar before the ex-date. */
+  prev?: { tradeDate: string; close: string };
+  /** The first Daily Bar on or after the ex-date. */
+  next?: { tradeDate: string; open: string };
+}
 
-/** A PriorClose reading the unadjusted Daily Bars in Postgres. */
-export const priorCloseFrom =
-  (db: Pick<pg.Pool, "query">): PriorClose =>
+/**
+ * The unadjusted Daily Bars either side of a Security's ex-date. A rights issue's
+ * factor depends on the prior close, a demerger's estimate on that and the ex-date's open.
+ */
+export type BarsAround = (symbol: string, exDate: string) => Promise<ExDateBars>;
+
+/** BarsAround reading the unadjusted Daily Bars in Postgres. */
+export const barsAroundFrom =
+  (db: Pick<pg.Pool, "query">): BarsAround =>
   async (symbol, exDate) => {
-    const { rows } = await db.query<{ close: string }>(
-      `SELECT close::text FROM core.daily_bar
-       WHERE symbol = $1 AND trade_date < $2::date ORDER BY trade_date DESC LIMIT 1`,
-      [symbol, exDate],
-    );
-    return rows[0]?.close;
+    const [prev, next] = await Promise.all([
+      db.query<{ tradeDate: string; close: string }>(
+        `SELECT trade_date::text AS "tradeDate", close::text FROM core.daily_bar
+         WHERE symbol = $1 AND trade_date < $2::date ORDER BY trade_date DESC LIMIT 1`,
+        [symbol, exDate],
+      ),
+      db.query<{ tradeDate: string; open: string }>(
+        `SELECT trade_date::text AS "tradeDate", open::text FROM core.daily_bar
+         WHERE symbol = $1 AND trade_date >= $2::date ORDER BY trade_date LIMIT 1`,
+        [symbol, exDate],
+      ),
+    ]);
+    return { prev: prev.rows[0], next: next.rows[0] };
   };
 
 export interface AdjustmentPlan {
@@ -69,6 +84,16 @@ export interface AdjustmentPlan {
   pendingTexts: string[];
   /** Action Interpretations whose shape is wrong. They are never applied; they await review. */
   rejected: RejectedInterpretation[];
+  /** Demergers no Review Decision has confirmed yet. They are never applied. */
+  pendingDemergers: PendingDemerger[];
+}
+
+/** A demerger awaiting a `confirm_demerger` Review Decision, with the estimate to judge. */
+export interface PendingDemerger extends ExDateBars {
+  symbol: string;
+  exDate: string;
+  /** Previous close ÷ ex-date open; undefined when a bar is missing or the open is not positive. */
+  estimate?: Fraction;
 }
 
 /** An Action Interpretation with the wrong shape for its type, and what is wrong with it. */
@@ -213,8 +238,13 @@ interface Rights {
   rights: { a: bigint; b: bigint; issuePrice: Fraction };
 }
 
-/** What an Action Interpretation gives: a factor, a reason there is none yet, or a rights issue still to price. */
-type Outcome = Fraction | { skip: string } | Rights;
+/** A demerger: NSE gives no ratio, so its factor is estimated and confirmed by review. */
+interface Demerger {
+  demerger: true;
+}
+
+/** What an Action Interpretation gives: a factor, a reason there is none yet, or a rights issue or demerger still to price. */
+type Outcome = Fraction | { skip: string } | Rights | Demerger;
 
 /**
  * Rights issue factor: prior close ÷ TERP, where
@@ -258,7 +288,7 @@ function factorOf(i: Interpretation): Outcome {
       return { rights: { a, b, issuePrice: decimal(i.issue_price, "issue_price") } };
     }
     case "demerger":
-      return { skip: 'interpretation type "demerger" is not supported yet' };
+      return { demerger: true };
     default:
       throw new ShapeError(`unknown type "${i.type}"`);
   }
@@ -281,24 +311,86 @@ function withoutRejected(actions: CorporateAction[], decisions: Decision[]): Cor
   return kept;
 }
 
-/** An outcome as a factor, pricing a rights issue from its prior close. */
+/** A positive price as an exact fraction, or undefined when it is not one. */
+function positivePrice(text: string, what: string): Fraction | undefined {
+  try {
+    return decimal(text, what);
+  } catch (err) {
+    if (err instanceof ShapeError) return undefined;
+    throw err;
+  }
+}
+
+/** Previous close ÷ the ex-date's open (NSE's price-discovery session), or undefined without both. */
+function demergerEstimate({ prev, next }: ExDateBars): Fraction | undefined {
+  const close = prev && positivePrice(prev.close, "prior close");
+  const open = next && positivePrice(next.open, "open");
+  return close && open ? fraction(close.num * open.den, close.den * open.num) : undefined;
+}
+
+/** The Review Decisions confirming demergers, by symbol and ex-date; each one must match a demerger. */
+class Confirmations {
+  private readonly byKey = new Map<string, ConfirmDemerger>();
+  private readonly used = new Set<string>();
+
+  constructor(decisions: Decision[]) {
+    for (const d of decisions) if (d.kind === "confirm_demerger") this.byKey.set(`${d.symbol}|${d.date}`, d);
+  }
+
+  /** The confirmation for a demerger, if a person gave one. */
+  take(symbol: string, exDate: string): ConfirmDemerger | undefined {
+    const key = `${symbol}|${exDate}`;
+    this.used.add(key);
+    return this.byKey.get(key);
+  }
+
+  /** A confirmation that matched no demerger is stale or mistyped, so it is an error. */
+  assertAllUsed(): void {
+    for (const [key, d] of this.byKey) {
+      if (!this.used.has(key)) throw new Error(`${d.where}: no demerger for ${d.symbol} going ex on ${d.date} to confirm`);
+    }
+  }
+}
+
+/** The factor of a demerger a person confirmed, or the reason it is still waiting. */
+function resolveDemerger(
+  action: CorporateAction,
+  bars: ExDateBars,
+  confirmation: ConfirmDemerger | undefined,
+): Resolved | { skip: string; pending: PendingDemerger } {
+  const estimate = demergerEstimate(bars);
+  if (confirmation) {
+    const factor = confirmation.factor ?? estimate;
+    if (!factor) {
+      throw new Error(
+        `${confirmation.where}: ${action.symbol} going ex on ${action.exDate} has no estimate to accept, so give a factor`,
+      );
+    }
+    return { factor, jump: factor };
+  }
+  return {
+    skip: "demerger has no ratio; its estimated factor is applied only once a Review Decision (confirm_demerger) confirms it",
+    pending: { symbol: action.symbol, exDate: action.exDate, ...bars, ...(estimate && { estimate }) },
+  };
+}
+
+/** An outcome as a factor, pricing a rights issue from its prior close and a demerger from its estimate. */
 async function resolve(
   action: CorporateAction,
   outcome: Outcome,
-  priorClose: PriorClose,
-): Promise<Resolved | { skip: string }> {
+  barsAround: BarsAround,
+  confirmations: Confirmations,
+): Promise<Resolved | { skip: string; pending?: PendingDemerger }> {
   if ("skip" in outcome) return outcome;
+  if ("demerger" in outcome) {
+    return resolveDemerger(action, await barsAround(action.symbol, action.exDate), confirmations.take(action.symbol, action.exDate));
+  }
   if (!("rights" in outcome)) return { factor: outcome, jump: outcome };
 
-  const close = await priorClose(action.symbol, action.exDate);
-  if (close === undefined) return { skip: "rights issue has no Daily Bar before its ex-date to take a prior close from" };
-  let price: Fraction;
-  try {
-    price = decimal(close, "prior close");
-  } catch (err) {
-    if (err instanceof ShapeError) return { skip: err.message };
-    throw err;
-  }
+  const { prev } = await barsAround(action.symbol, action.exDate);
+  if (prev === undefined) return { skip: "rights issue has no Daily Bar before its ex-date to take a prior close from" };
+  const price = positivePrice(prev.close, "prior close");
+  if (price === undefined) return { skip: `prior close must be a positive number, got "${prev.close}"` };
   const factor = rightsFactor(outcome.rights, price);
   // An issue price at or above the prior close gives a factor of 1 or less: recorded, but no jump is expected.
   return { factor, jump: factor.num <= factor.den ? ONE : factor };
@@ -321,14 +413,16 @@ function addFactor(combined: Map<string, ExDateFactor>, symbol: string, exDate: 
  * Adjustment Factors to apply. A Corporate Action whose description has no
  * interpretation (or one of an unsupported type) is skipped and reported, never
  * guessed. A "not price-relevant" one needs no factor and is not reported. A
- * rights issue takes its prior close from `priorClose`; without a Daily Bar
- * before its ex-date it is skipped and reported.
+ * rights issue takes its prior close from `barsAround`; without a Daily Bar
+ * before its ex-date it is skipped and reported. A demerger is applied only when
+ * a `confirm_demerger` Review Decision names it; until then it is skipped, reported
+ * and listed in `pendingDemergers` with its estimated factor.
  */
 export async function planAdjustments(
   referenceDir: string,
   startDate: string,
   decisions: Decision[],
-  priorClose: PriorClose,
+  barsAround: BarsAround,
 ): Promise<AdjustmentPlan> {
   const [listed, interpretations] = await Promise.all([
     loadActions(referenceDir, startDate),
@@ -348,7 +442,9 @@ export async function planAdjustments(
     }
   }
 
+  const confirmations = new Confirmations(decisions);
   const skipped: SkippedAction[] = [];
+  const pendingDemergers: PendingDemerger[] = [];
   const pending = new Set<string>();
   const combined = new Map<string, ExDateFactor>();
   for (const action of actions) {
@@ -362,13 +458,16 @@ export async function planAdjustments(
     } else {
       continue; // rejected for shape: reported once, for review
     }
-    const resolved = await resolve(action, outcome, priorClose);
+    const resolved = await resolve(action, outcome, barsAround, confirmations);
     if ("skip" in resolved) {
       skipped.push({ ...action, reason: resolved.skip });
+      if (resolved.pending) pendingDemergers.push(resolved.pending);
       continue;
     }
     addFactor(combined, action.symbol, action.exDate, resolved);
   }
+
+  confirmations.assertAllUsed();
 
   // Actions a person added are not in NSE's list, and need no interpretation.
   for (const d of decisions) {
@@ -388,5 +487,6 @@ export async function planAdjustments(
     }
   }
   skipped.sort((a, b) => a.exDate.localeCompare(b.exDate) || a.symbol.localeCompare(b.symbol));
-  return { factors, skipped, pendingTexts: [...pending].sort(), rejected };
+  pendingDemergers.sort((a, b) => a.exDate.localeCompare(b.exDate) || a.symbol.localeCompare(b.symbol));
+  return { factors, skipped, pendingTexts: [...pending].sort(), rejected, pendingDemergers };
 }

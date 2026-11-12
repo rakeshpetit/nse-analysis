@@ -95,8 +95,8 @@ Inputs live under `reference/` (git-tracked, never edited by the pipeline):
   `description,type,ratio,old_face_value,new_face_value,issue_price`.
   `type` is `bonus` (`ratio` `a:b`), `split` or `consolidation` (old/new face
   value), or `not_price_relevant`. `rights` (`ratio` `a:b`, `issue_price` = face
-  value + premium) is adjusted using TERP; `demerger` rows are accepted but not adjusted
-  yet (#0009), so they are reported as skipped.
+  value + premium) is adjusted using TERP; a `demerger` row (no other fields) is adjusted
+  only once a Review Decision confirms its estimated factor (see "Demergers").
 
 | Action                 | Adjustment Factor                        |
 | ---------------------- | ---------------------------------------- |
@@ -116,6 +116,16 @@ price at or above the prior close gives a factor of 1 or less: it is applied and
 no price jump is expected for it, so it is never reported as an action with no visible jump
 (`adjusted.adjustment_factor.jump_num / jump_den` holds the part of the factor that should show
 as a jump).
+
+### Demergers
+
+NSE publishes a demerger with no ratio, so none is ever taken from the text. For each in-window
+demerger the pipeline estimates a factor: the Security's last Daily Bar close before the ex-date
+÷ the open of the first Daily Bar on or after it (NSE's price-discovery session). The estimate is
+**never applied on its own**: until a `confirm_demerger` Review Decision names the demerger,
+`build` lists it as skipped and `yarn review` shows it as `demerger:SYMBOL:EX_DATE` with the
+estimate and the bars around the ex-date. With no Daily Bar on both sides of the ex-date there
+is no estimate, and only an explicit factor can confirm it.
 
 A Corporate Action with no interpretation row is never guessed: `build` prints it
 (`Skipped N Corporate Action(s)`) and applies no adjustment for it.
@@ -176,8 +186,9 @@ Name what a row is about either by its review item ID in `item`, or by `symbol` 
 | `add_action`     | `break:SYMBOL:DATE` or symbol + ex-date, `factor` | Applies an Adjustment Factor NSE's list lacks; bars before the ex-date are divided by it. |
 | `reject_action`  | `no-jump:SYMBOL:EX_DATE` or symbol + ex-date  | Ignores every Corporate Action NSE lists for that Security on that ex-date.             |
 | `dismiss_break`  | `break:SYMBOL:DATE` or symbol + date          | Drops a Suspected Break that is a genuine price move. Prices are unchanged.             |
+| `confirm_demerger` | `demerger:SYMBOL:EX_DATE` or symbol + ex-date; `factor` optional | Applies a demerger NSE lists. A blank `factor` accepts the estimate (previous close ÷ ex-date open); a `factor` replaces it. |
 
-`factor` is a positive number or a ratio, not 1: `2` (bonus 1:1), `10` (10→1 split),
+`factor` is a positive number or a ratio, not 1 (blank is allowed only for `confirm_demerger`): `2` (bonus 1:1), `10` (10→1 split),
 `1/10` (consolidation). It multiplies with any factor NSE lists on the same ex-date.
 
 ```csv
@@ -185,20 +196,23 @@ decision,item,symbol,date,factor,note
 add_action,break:RELIANCE:2024-10-28,,,2,Bonus 1:1 missing from the NSE list
 reject_action,,SUNEX,2024-11-03,,NSE listed it in error
 dismiss_break,break:UPCO:2024-10-11,,,,F&O stock with no price band
+confirm_demerger,demerger:SIEMENS:2025-04-07,,,,Estimate matches the price discovery open
+confirm_demerger,,RAYMOND,2025-05-14,3,Ratio from the scheme document
 ```
 
 A row that does not apply makes `build` fail, naming the row, and nothing changes:
 an unknown decision, bad date or factor, an item of the wrong kind, a symbol with no bars
-on both sides of an added ex-date, an action to reject that NSE does not list, a break
-to dismiss that is not there, or the same thing decided twice. A `reject_action` or
+on both sides of an added ex-date, an action to reject that NSE does not list, a demerger
+to confirm that NSE does not list (or that was rejected), an estimate to accept when there
+is none, a break to dismiss that is not there, or the same thing decided twice. A `reject_action` or
 `dismiss_break` going stale (NSE drops the action, an interpretation now explains the break)
 fails the same way, so delete the row. An `add_action` is only checked for bars on both
 sides of its ex-date, not against the break it was named after, and it multiplies with any
 factor NSE lists on that ex-date: if NSE later lists the action you added, delete your row.
-Decisions are applied in this order: rejected actions leave the list, added actions join
-it, then breaks are found and dismissals applied, so a dismissal refers to a break as it
+Decisions are applied in this order: rejected actions leave the list, confirmed demergers
+get their factor, added actions join it, then breaks are found and dismissals applied, so a dismissal refers to a break as it
 stands after the other two. `yarn review` re-reads `decisions.csv` only for rejected
-actions; breaks come from the last `build`, so re-run it after editing decisions.
+actions and confirmed demergers; breaks come from the last `build`, so re-run it after editing decisions.
 Deleting `decisions.csv` and rebuilding restores the undecided state; the database keeps
 nothing that is not in git.
 

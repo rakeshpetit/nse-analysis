@@ -67,5 +67,5 @@ A day-over-day price jump in the data that no recorded Corporate Action explains
 _Avoid_: anomaly, potential split
 
 **Review Decision**:
-A human ruling on a flagged case: add a missing Corporate Action, reject a wrong one, or dismiss a Suspected Break. Review Decisions are the only way a person changes pipeline output.
+A human ruling on a flagged case: add a missing Corporate Action, reject a wrong one, confirm a demerger's estimated factor, or dismiss a Suspected Break. Review Decisions are the only way a person changes pipeline output.
 _Avoid_: manual fix, override, correction

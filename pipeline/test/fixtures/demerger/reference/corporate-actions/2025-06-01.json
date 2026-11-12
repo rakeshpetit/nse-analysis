@@ -1,0 +1,30 @@
+[
+  {
+    "symbol": "SIEMENS",
+    "comp": "SIEMENS",
+    "series": "EQ",
+    "faceVal": "2",
+    "subject": "Demerger",
+    "exDate": "07-Apr-2025",
+    "recDate": "07-Apr-2025",
+    "bcStartDate": "-",
+    "bcEndDate": "-",
+    "ndStartDate": "-",
+    "ndEndDate": "-",
+    "caBroadcastDate": "-"
+  },
+  {
+    "symbol": "NOBARS",
+    "comp": "NOBARS",
+    "series": "EQ",
+    "faceVal": "10",
+    "subject": "Demerger",
+    "exDate": "07-Apr-2025",
+    "recDate": "07-Apr-2025",
+    "bcStartDate": "-",
+    "bcEndDate": "-",
+    "ndStartDate": "-",
+    "ndEndDate": "-",
+    "caBroadcastDate": "-"
+  }
+]

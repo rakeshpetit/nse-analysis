@@ -25,7 +25,7 @@ NSE gives a Corporate Action's ratio only as free text. Each distinct text is in
 | `split`              | face value reduced (sub-division)                    | `old_face_value` > `new_face_value`         | empty        |
 | `consolidation`      | face value increased                                 | `old_face_value` < `new_face_value`         | empty        |
 | `rights`             | a new shares for every b held, at `issue_price`      | `ratio` = `a:b`, `issue_price`              | empty        |
-| `demerger`           | a business is split off                              | none yet (applied in a later milestone)     | empty        |
+| `demerger`           | a business is split off                              | none: the factor is estimated and confirmed by review | empty        |
 | `not_price_relevant` | changes no share price: see below                    | none                                        | empty        |
 
 Rules `build` enforces (a row that breaks them is **not applied** and goes to the review queue). Keep fields a type does not use empty; that is not checked, but it keeps the file readable:
@@ -40,7 +40,7 @@ Rules `build` enforces (a row that breaks them is **not applied** and goes to th
 - **Split / consolidation**: take the two face values from "From Rs X/- Per Share To Rs Y/-". `Re 1` is 1. Split if Y < X, consolidation if Y > X.
 - **Rights**: `Rights a:b @ Premium Rs P/-`: `ratio` = `a:b`, and `issue_price` = **face value + premium**. The face value is not in the text; take it from the `faceVal` of the same symbol's entry in the newest `reference/corporate-actions/*.json`. If the text gives no premium or you cannot find the face value, do not guess; report it.
 - **`not_price_relevant`**: actions that do not change what an ordinary share trades at, such as a bonus on **NCRPS or other preference shares**, or a scheme of arrangement with no share-count effect. When a text names preference shares (NCRPS, "Preference Shares"), it is `not_price_relevant`, however much it looks like a bonus.
-- **Demerger**: record `demerger`; the price effect is estimated and confirmed by review later.
+- **Demerger**: record `demerger` with no other fields. `build` estimates its factor (previous close ÷ ex-date open) but applies it only after a `confirm_demerger` Review Decision.
 - Dividends, buybacks and the like are not Corporate Actions in this project. If one shows up in the pending file, record it `not_price_relevant`.
 
 ## Examples

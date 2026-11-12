@@ -1,7 +1,7 @@
 import type pg from "pg";
 import {
   planAdjustments,
-  priorCloseFrom,
+  barsAroundFrom,
   writePendingFile,
   type AdjustmentPlan,
   type RejectedInterpretation,
@@ -291,7 +291,7 @@ async function assertNoConflicts(client: pg.PoolClient, startDate: string): Prom
  */
 export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
   const decisions = await loadDecisions(opts.reviewDir);
-  let plan: AdjustmentPlan = { factors: [], skipped: [], pendingTexts: [], rejected: [] };
+  let plan: AdjustmentPlan = { factors: [], skipped: [], pendingTexts: [], rejected: [], pendingDemergers: [] };
   const result = await withTransaction(db, async (client) => {
     await assertNoConflicts(client, opts.startDate);
     await client.query("TRUNCATE core.daily_bar, core.daily_bar_flag");
@@ -321,7 +321,7 @@ export async function build(db: Db, opts: BuildOptions): Promise<BuildResult> {
     await client.query(FLAG_BARS);
     // Rights issues are priced from the Daily Bars just built, so the plan waits for them.
     if (opts.referenceDir) {
-      plan = await planAdjustments(opts.referenceDir, opts.startDate, decisions, priorCloseFrom(client));
+      plan = await planAdjustments(opts.referenceDir, opts.startDate, decisions, barsAroundFrom(client));
     }
     await assertAddedActionsApply(client, decisions.filter((d) => d.kind === "add_action"));
     await buildAdjusted(client, plan);
