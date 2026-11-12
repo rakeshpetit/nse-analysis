@@ -1,5 +1,5 @@
 ---
-status: ready
+status: done
 type: AFK
 blocked_by: ["0001"]
 ---
@@ -17,11 +17,11 @@ Make loading robust to the actual state of `files/` from Sep 2024 onwards:
 
 ## Acceptance criteria
 
-- [ ] Daily Bars are keyed by the in-file Trading Day
-- [ ] A fixture with a holiday-named duplicate gives one set of Daily Bars
-- [ ] A fixture with two disagreeing files for the same Trading Day fails with a report naming both files
-- [ ] The `04SEP2024` quoting variant loads correctly, with a fixture test
-- [ ] A full load of `files/` from Sep 2024 has no duplicate (symbol, Trading Day) Daily Bars
+- [x] Daily Bars are keyed by the in-file Trading Day
+- [x] A fixture with a holiday-named duplicate gives one set of Daily Bars
+- [x] A fixture with two disagreeing files for the same Trading Day fails with a report naming both files
+- [x] The `04SEP2024` quoting variant loads correctly, with a fixture test
+- [x] A full load of `files/` from Sep 2024 has no duplicate (symbol, Trading Day) Daily Bars
 
 ## Blocked by
 
